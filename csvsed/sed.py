@@ -28,7 +28,20 @@ import re, string, types, subprocess, csvkit, csv
 from csvkit.exceptions import ColumnIdentifierError
 
 #------------------------------------------------------------------------------
-class InvalidModifierSpec(Exception): pass
+class InvalidModifierSpec(Exception):
+  
+  def __init__(self, message):
+    if isinstance(message, unicode):
+        super(InvalidModifierSpec, self).__init__(message.encode('utf-8'))
+        self.message = message
+    elif isinstance(message, str):
+        super(InvalidModifierSpec, self).__init__(message)
+        self.message = message.decode('utf-8')
+    else:
+        raise TypeError
+
+  def __unicode__(self):
+    return 'Invalid modifier: %s' % self.message
 
 #------------------------------------------------------------------------------
 class CsvFilter(object):
