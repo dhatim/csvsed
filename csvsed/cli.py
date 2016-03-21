@@ -40,8 +40,8 @@ class CsvSed(CSVKitUtility):
                                 help='Display column names and indices from the input CSV and exit.')
     self.argparser.add_argument('-c', '--columns', dest='columns',
                                 help='A comma separated list of column indices or names to be modified.')
-    self.argparser.add_argument('-r', '--expr', dest='expr',
-                                help='If specified, he "sed" expression to evaluate: currently supports substitution '
+    self.argparser.add_argument('-m', '--modifier', dest='modifier',
+                                help='If specified, he "sed" modifier to evaluate: currently supports substitution '
                                 ' (s/REGEX/EXPR/FLAGS) and transliteration (y/SRC/DEST/FLAGS)')
     # todo: support in-place file modification
     # todo: make sure that it supports backup spec, eg '-i.orig'
@@ -60,7 +60,7 @@ class CsvSed(CSVKitUtility):
     if not self.args.columns:
       self.argparser.error('You must specify at least one column to search using the -c option.')
 
-    if self.args.expr is None:
+    if self.args.modifier is None:
       self.argparser.error('-r must be specified, unless using the -n option.')
 
     reader_kwargs = self.reader_kwargs
@@ -70,8 +70,8 @@ class CsvSed(CSVKitUtility):
 
     rows, column_names, column_ids = self.get_rows_and_column_names_and_column_ids(**reader_kwargs)
 
-    mods   = {idx: self.args.expr for idx in column_ids}
-    reader = sed.CsvFilter(rows, mods, header=False)
+    modifiers = {idx: self.args.modifier for idx in column_ids}
+    reader = sed.CsvFilter(rows, modifiers, header=False)
 
     output = agate.csv.writer(self.output_file, **writer_kwargs)
     output.writerow(column_names)

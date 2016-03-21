@@ -28,14 +28,14 @@ import re, string, types, subprocess, csvkit, csv
 from csvkit.exceptions import ColumnIdentifierError
 
 #------------------------------------------------------------------------------
-class InvalidModifierSpec(Exception):
-  
+class InvalidModifier(Exception):
+
   def __init__(self, message):
     if isinstance(message, unicode):
-        super(InvalidModifierSpec, self).__init__(message.encode('utf-8'))
+        super(InvalidModifier, self).__init__(message.encode('utf-8'))
         self.message = message
     elif isinstance(message, str):
-        super(InvalidModifierSpec, self).__init__(message)
+        super(InvalidModifier, self).__init__(message)
         self.message = message.decode('utf-8')
     else:
         raise TypeError
@@ -67,9 +67,9 @@ class CsvFilter(object):
       the following:
 
       * function : takes a single string argument and returns a string
-      * string : a sed-like modification specification.
+      * string : a sed-like modifier.
 
-      Currently supported modification specifications:
+      Currently supported modification modifiers:
 
       * Substitution: "s/REGEX/REPL/FLAGS"
 
@@ -98,7 +98,7 @@ class CsvFilter(object):
         matching of `SRC`, is supported.
 
       Note that the "/" character can be any character as long as it
-      is used consistently and not used within the specification,
+      is used consistently and not used within the modifier,
       e.g. ``s|a|b|`` is equivalent to ``s/a/b/``.
 
     header : bool, optional, default: true
@@ -125,72 +125,75 @@ class CsvFilter(object):
     return row
 
 #------------------------------------------------------------------------------
-def standardize_modifiers(cnames, modifiers):
-  # TODO: csvkit.grep.standardize_patterns could be refactored to support
-  #       this process here as well...
+def standardize_modifiers(column_names, modifiers):
+  """
+  Given modifiers in any of the permitted input forms, return a dict whose keys
+  are column indices and whose values are functions which return a modified value.
+  If modifiers is a dictionary and any of its keys are values in column_names, the
+  returned dictionary will have those keys replaced with the integer position of
+  that value in column_names
+  """
   try:
-    # Test to see if dictionary of modifiers
-    modifiers = {k: v for k, v in modifiers.items() if v}
+    # Dictionary of modifiers
+    modifiers = dict((k, modifier_as_function(v)) for k, v in modifiers.items() if v)
+    if not column_names:
+      return modifiers
+    p2 = {}
+    for k in modifiers:
+      if k in column_names:
+        idx = column_names.index(k)
+        if idx in modifiers:
+          raise ColumnIdentifierError("Column %s has index %i which already has a pattern." % (k, idx))
+        p2[idx] = modifiers[k]
+      else:
+        p2[k] = modifiers[k]
+    return p2
   except AttributeError:
-    # Fallback to sequence of modifiers
-    return {i: spec2modifier(v) for i, v in enumerate(modifiers) if v}
-  modifiers = {k: spec2modifier(v) for k, v in modifiers.items()}
-  if not cnames:
-    return modifiers
-  p2 = {}
-  for k in modifiers:
-    if k in cnames:
-      idx = cnames.index(k)
-      if idx in modifiers:
-        raise ColumnIdentifierError(
-          'Column %s has index %i which already has a pattern.' % (k,idx))
-      p2[idx] = modifiers[k]
-    else:
-      p2[k] = modifiers[k]
-  return p2
+    # Sequence of modifiers
+    return dict((i, modifier_as_function(x)) for i, x in enumerate(modifiers))
 
 #------------------------------------------------------------------------------
-def spec2modifier(obj):
-  # obj is function
+def modifier_as_function(obj):
+  # obj is modifier function
   if hasattr(obj, '__call__'):
     return obj
-  # obj is a specification string
+  # obj is a modifier string
   return eval(obj[0].upper() + '_modifier')(obj)
 
 #------------------------------------------------------------------------------
 class S_modifier(object):
   'The "substitution" modifier ("s/REGEX/REPL/FLAGS").'
-  def __init__(self, spec):
+  def __init__(self, modifier):
     super(S_modifier, self).__init__()
-    if not spec or len(spec) < 4 or spec[0] != 's':
-      raise InvalidModifierSpec(spec)
-    sspec = spec.split(spec[1])
-    if len(sspec) != 4:
-      raise InvalidModifierSpec(spec)
+    if not modifier or len(modifier) < 4 or modifier[0] != 's':
+      raise InvalidModifier(modifier)
+    mmodifier = modifier.split(modifier[1])
+    if len(mmodifier) != 4:
+      raise InvalidModifier(modifier)
     flags = 0
-    for flag in sspec[3].upper():
+    for flag in mmodifier[3].upper():
       flags |= getattr(re, flag, 0)
-    self.regex = re.compile(sspec[1], flags)
-    self.repl  = sspec[2]
-    self.count = 0 if 'g' in sspec[3].lower() else 1
+    self.regex = re.compile(mmodifier[1], flags)
+    self.repl  = mmodifier[2]
+    self.count = 0 if 'g' in mmodifier[3].lower() else 1
   def __call__(self, value):
     return self.regex.sub(self.repl, value, count=self.count)
 
 #------------------------------------------------------------------------------
-def cranges(spec):
+def cranges(modifier):
   # todo: there must be a better way...
   ret = ''
   idx = 0
-  while idx < len(spec):
-    c = spec[idx]
+  while idx < len(modifier):
+    c = modifier[idx]
     idx += 1
-    if c == '-' and len(ret) > 0 and len(spec) > idx:
-      for i in range(ord(ret[-1]) + 1, ord(spec[idx]) + 1):
+    if c == '-' and len(ret) > 0 and len(modifier) > idx:
+      for i in range(ord(ret[-1]) + 1, ord(modifier[idx]) + 1):
         ret += chr(i)
       idx += 1
       continue
-    if c == '\\' and len(spec) > idx:
-      c = spec[idx]
+    if c == '\\' and len(modifier) > idx:
+      c = modifier[idx]
       idx += 1
     ret += c
   return ret
@@ -203,26 +206,26 @@ class Y_modifier(object):
   #       values... so the current 'y' modifier does not use them.
   #       *HOWEVER*, python3's version *does* work, so in py3 mode,
   #       use that!
-  def __init__(self, spec):
+  def __init__(self, modifier):
     super(Y_modifier, self).__init__()
-    if not spec or len(spec) < 4 or spec[0] != 'y':
-      raise InvalidModifierSpec(spec)
-    yspec = spec.split(spec[1])
-    if len(yspec) != 4:
-      raise InvalidModifierSpec(spec)
-    yspec[1] = cranges(yspec[1])
-    yspec[2] = cranges(yspec[2])
-    if 'i' in yspec[3].lower():
-      # self.table = string.maketrans(yspec[1].lower() + yspec[1].upper(),
-      #                               2 * yspec[2])
-      self.src = yspec[1].lower() + yspec[1].upper()
-      self.dst = 2 * yspec[2]
+    if not modifier or len(modifier) < 4 or modifier[0] != 'y':
+      raise InvalidModifier(modifier)
+    ymodifier = modifier.split(modifier[1])
+    if len(ymodifier) != 4:
+      raise InvalidModifier(modifier)
+    ymodifier[1] = cranges(ymodifier[1])
+    ymodifier[2] = cranges(ymodifier[2])
+    if 'i' in ymodifier[3].lower():
+      # self.table = string.maketrans(ymodifier[1].lower() + ymodifier[1].upper(),
+      #                               2 * ymodifier[2])
+      self.src = ymodifier[1].lower() + ymodifier[1].upper()
+      self.dst = 2 * ymodifier[2]
     else:
-      # self.table = string.maketrans(yspec[1], yspec[2])
-      self.src = yspec[1]
-      self.dst = yspec[2]
+      # self.table = string.maketrans(ymodifier[1], ymodifier[2])
+      self.src = ymodifier[1]
+      self.dst = ymodifier[2]
     if len(self.src) != len(self.dst):
-      raise InvalidModifierSpec(spec)
+      raise InvalidModifier(modifier)
   def __call__(self, value):
     # return string.translate(val, self.table)
     # TODO: this could be *much* more efficient...
@@ -249,17 +252,17 @@ class ReadlineIterator(object):
 #------------------------------------------------------------------------------
 class E_modifier(object):
   'The "execute" external program modifier ("e/PROGRAM+OPTIONS/FLAGS").'
-  def __init__(self, spec):
+  def __init__(self, modifier):
     super(E_modifier, self).__init__()
-    if not spec or len(spec) < 3 or spec[0] != 'e':
-      raise InvalidModifierSpec(spec)
-    espec = spec.split(spec[1])
-    if len(espec) != 3:
-      raise InvalidModifierSpec(spec)
-    espec[2] = espec[2].lower()
-    self.command = espec[1]
-    self.index   = 1 if 'i' in espec[2] else None
-    self.csv     = 'c' in espec[2]
+    if not modifier or len(modifier) < 3 or modifier[0] != 'e':
+      raise InvalidModifier(modifier)
+    emodifier = modifier.split(modifier[1])
+    if len(emodifier) != 3:
+      raise InvalidModifier(modifier)
+    emodifier[2] = emodifier[2].lower()
+    self.command = emodifier[1]
+    self.index   = 1 if 'i' in emodifier[2] else None
+    self.csv     = 'c' in emodifier[2]
     if not self.csv:
       return
     self.proc = subprocess.Popen(
