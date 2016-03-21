@@ -107,8 +107,8 @@ class CsvFilter(object):
     '''
     self.reader    = reader
     self.header    = header
-    self.cnames    = None if not header else reader.next()
-    self.modifiers = standardize_modifiers(self.cnames, modifiers)
+    self.column_names    = None if not header else reader.next()
+    self.modifiers = standardize_modifiers(self.column_names, modifiers)
 
   #----------------------------------------------------------------------------
   def __iter__(self):
@@ -118,7 +118,7 @@ class CsvFilter(object):
   def next(self):
     if self.header:
       self.header = False
-      return self.cnames
+      return self.column_names
     row = self.reader.next()
     for col, mod in self.modifiers.items():
       row[col] = mod(row[col])
