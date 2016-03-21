@@ -23,10 +23,12 @@
 Command-line interface to `csvsed.sed`.
 '''
 
+import agate
+import argparse
 import re, sys
 
 from csvkit import CSVKitReader, CSVKitWriter
-from csvkit.cli import CSVKitUtility, CSVFileType, parse_column_identifiers
+from csvkit.cli import CSVKitUtility, parse_column_identifiers
 from csvsed import sed
 
 #------------------------------------------------------------------------------
@@ -55,7 +57,7 @@ class CsvSed(CSVKitUtility):
       ' (s/REGEX/EXPR/FLAGS) and transliteration (y/SRC/DEST/FLAGS).')
     self.argparser.add_argument(
       'file', metavar='FILE',
-      nargs='?', type=CSVFileType(), default=sys.stdin,
+      nargs='?', type=argparse.FileType('r'), default=sys.stdin,
       help='The CSV file to operate on. If omitted or "-", will read from STDIN.')
 
   #----------------------------------------------------------------------------
