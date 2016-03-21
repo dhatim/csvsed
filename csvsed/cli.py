@@ -36,10 +36,13 @@ class CsvSed(CSVKitUtility):
 
   #----------------------------------------------------------------------------
   def add_arguments(self):
-    self.argparser.add_argument(
-      '-c', '--columns',
-      dest='columns',
-      help='A comma separated list of column indices or names to be modified.')
+    self.argparser.add_argument('-n', '--names', dest='names_only', action='store_true',
+                                help='Display column names and indices from the input CSV and exit.')
+    self.argparser.add_argument('-c', '--columns', dest='columns',
+                                help='A comma separated list of column indices or names to be modified.')
+    self.argparser.add_argument('-r', '--expr', dest='expr',
+                                help='If specified, he "sed" expression to evaluate: currently supports substitution '
+                                ' (s/REGEX/EXPR/FLAGS) and transliteration (y/SRC/DEST/FLAGS)')
     # todo: support in-place file modification
     # todo: make sure that it supports backup spec, eg '-i.orig'
     # self.argparser.add_argument(
@@ -47,12 +50,19 @@ class CsvSed(CSVKitUtility):
     #   dest='inplace',
     #   help='Modify a file in-place (with a value, specifies that the original'
     #   ' should be renamed first, e.g. "-i.orig")')
-    self.argparser.add_argument('-r', '--expr', dest='expr', nargs='?',
-                                help='If specified, he "sed" expression to evaluate: currently supports substitution '
-                                ' (s/REGEX/EXPR/FLAGS) and transliteration (y/SRC/DEST/FLAGS)')
 
   #----------------------------------------------------------------------------
   def main(self):
+    if self.args.names_only:
+      self.print_column_names()
+      return
+
+    if not self.args.columns:
+      self.argparser.error('You must specify at least one column to search using the -c option.')
+
+    if self.args.expr is None:
+      self.argparser.error('-r must be specified, unless using the -n option.')
+
     reader_kwargs = self.reader_kwargs
     writer_kwargs = self.writer_kwargs
     if writer_kwargs.pop('line_numbers', False):
