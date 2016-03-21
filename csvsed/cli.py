@@ -24,19 +24,15 @@ Command-line interface to `csvsed.sed`.
 '''
 
 import agate
-import argparse
-import re, sys
 
-from csvkit import CSVKitReader, CSVKitWriter
-from csvkit.cli import CSVKitUtility, parse_column_identifiers
+from csvkit.cli import CSVKitUtility
 from csvsed import sed
 
 #------------------------------------------------------------------------------
 class CsvSed(CSVKitUtility):
 
   description = 'A stream-oriented CSV modification tool. Like a ' \
-      ' stripped-down "sed" command, but for tabular data.'
-  override_flags = 'f'
+                ' stripped-down "sed" command, but for tabular data.'
 
   #----------------------------------------------------------------------------
   def add_arguments(self):
@@ -51,34 +47,35 @@ class CsvSed(CSVKitUtility):
     #   dest='inplace',
     #   help='Modify a file in-place (with a value, specifies that the original'
     #   ' should be renamed first, e.g. "-i.orig")')
-    self.argparser.add_argument(
-      'expr', metavar='EXPR',
-      help='The "sed" expression to evaluate: currently supports substitution'
-      ' (s/REGEX/EXPR/FLAGS) and transliteration (y/SRC/DEST/FLAGS).')
-    self.argparser.add_argument(
-      'file', metavar='FILE',
-      nargs='?', type=argparse.FileType('r'), default=sys.stdin,
-      help='The CSV file to operate on. If omitted or "-", will read from STDIN.')
+    self.argparser.add_argument('-r', '--expr', dest='expr', nargs='?',
+                                help='If specified, he "sed" expression to evaluate: currently supports substitution '
+                                ' (s/REGEX/EXPR/FLAGS) and transliteration (y/SRC/DEST/FLAGS)')
 
   #----------------------------------------------------------------------------
   def main(self):
-    reader = CSVKitReader(self.args.file, **self.reader_kwargs)
-    cnames = reader.next()
-    cids   = parse_column_identifiers(self.args.columns, cnames, self.args.zero_based)
-    mods   = {idx: self.args.expr for idx in cids}
-    output = CSVKitWriter(self.output_file, **self.writer_kwargs)
-    reader = sed.CsvFilter(reader, mods, header=False)
-    output.writerow(cnames)
+    reader_kwargs = self.reader_kwargs
+    writer_kwargs = self.writer_kwargs
+    if writer_kwargs.pop('line_numbers', False):
+      reader_kwargs = {'line_numbers': True}
+
+    rows, column_names, column_ids = self.get_rows_and_column_names_and_column_ids(**reader_kwargs)
+
+    mods   = {idx: self.args.expr for idx in column_ids}
+    reader = sed.CsvFilter(rows, mods, header=False)
+
+    output = agate.csv.writer(self.output_file, **writer_kwargs)
+    output.writerow(column_names)
+
     for row in reader:
       output.writerow(row)
 
 #------------------------------------------------------------------------------
-def main():
+def launch_instance():
   utility = CsvSed()
-  return utility.main()
+  utility.main()
 
 if __name__ == '__main__':
-  sys.exit(main())
+  launch_instance()
 
 #------------------------------------------------------------------------------
 # end of $Id$
