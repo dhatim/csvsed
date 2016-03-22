@@ -19,6 +19,7 @@
 # along with this program. If not, see http://www.gnu.org/licenses/.
 #------------------------------------------------------------------------------
 
+import agate
 import unittest, StringIO, csvkit
 from . import sed
 
@@ -26,9 +27,9 @@ from . import sed
 def run(source, modifiers, header=True):
   src = StringIO.StringIO(source)
   dst = StringIO.StringIO()
-  reader = csvkit.CSVKitReader(src)
+  reader = agate.csv.reader(src)
   reader = sed.CsvFilter(reader, modifiers, header=header)
-  writer = csvkit.CSVKitWriter(dst)
+  writer = agate.csv.writer(dst)
   for row in reader:
     writer.writerow(row)
   return dst.getvalue()
