@@ -69,7 +69,7 @@ g,G,gamma,γ,Γ,γάμμα
     self.assertEqual(sed.Y_modifier('y/a\-z/A~Z/')('Back-Up'), 'BAck~Up')
 
   def test_modifier_y_directcall_unicode(self):
-    self.assertEqual(sed.Y_modifier(u'y/αβγ/abg/')(u'β,α,γ'), u'b,a,g')
+    self.assertEqual(sed.Y_modifier(u'y/αβγ/abg/')(u'β,α,γ'), 'b,a,g')
     self.assertEqual(sed.Y_modifier(u'y/abg/αβγ/')(u'b,a,g'), u'β,α,γ')
     self.assertEqual(sed.Y_modifier(u'y/αβγ/γαβ/')(u'β,α,γ'), u'α,γ,β')
 
@@ -180,7 +180,7 @@ g,G,gamma,_,Γ,*****
 
   def test_modifier_s_nomatch_unicode(self):
     chk = self.baseCsvUnicode
-    self.assertMultiLineEqual(run(self.baseCsvUnicode, {5: 's/[a-zA-Z0-9€]/../'}), chk)
+    self.assertMultiLineEqual(run(self.baseCsvUnicode, {5: u's/[a-zA-Z0-9€]/../'}), chk)
 
   #----------------------------------------------------------------------------
   def test_modifier_s_iflag(self):

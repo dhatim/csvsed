@@ -153,12 +153,13 @@ def standardize_modifiers(column_names, modifiers):
     return dict((i, modifier_as_function(x)) for i, x in enumerate(modifiers))
 
 #------------------------------------------------------------------------------
-def modifier_as_function(obj):
-  # obj is modifier function
-  if hasattr(obj, '__call__'):
-    return obj
-  # obj is a modifier string
-  return eval(obj[0].upper() + '_modifier')(obj)
+def modifier_as_function(modifier):
+  # modifier is modifier function
+  if hasattr(modifier, '__call__'):
+    return modifier
+  # modifier is a modifier string
+  return eval(modifier[0].upper() + '_modifier')(modifier)
+
 
 #------------------------------------------------------------------------------
 class S_modifier(object):
@@ -167,15 +168,15 @@ class S_modifier(object):
     super(S_modifier, self).__init__()
     if not modifier or len(modifier) < 4 or modifier[0] != 's':
       raise InvalidModifier(modifier)
-    mmodifier = modifier.split(modifier[1])
-    if len(mmodifier) != 4:
+    s_modifier = modifier.split(modifier[1])
+    if len(s_modifier) != 4:
       raise InvalidModifier(modifier)
     flags = 0
-    for flag in mmodifier[3].upper():
+    for flag in s_modifier[3].upper():
       flags |= getattr(re, flag, 0)
-    self.regex = re.compile(mmodifier[1], flags)
-    self.repl  = mmodifier[2]
-    self.count = 0 if 'g' in mmodifier[3].lower() else 1
+    self.regex = re.compile(s_modifier[1], flags)
+    self.repl  = s_modifier[2]
+    self.count = 0 if 'g' in s_modifier[3].lower() else 1
   def __call__(self, value):
     return self.regex.sub(self.repl, value, count=self.count)
 
@@ -201,42 +202,32 @@ def cranges(modifier):
 #------------------------------------------------------------------------------
 class Y_modifier(object):
   'The "transliterate" modifier ("y/SOURCE/DESTINATION/FLAGS").'
-  # todo: the python2 string.maketrans & string.translate functions
-  #       only work on non-unicode input and csvkit produces unicode
-  #       values... so the current 'y' modifier does not use them.
-  #       *HOWEVER*, python3's version *does* work, so in py3 mode,
-  #       use that!
+
   def __init__(self, modifier):
     super(Y_modifier, self).__init__()
     if not modifier or len(modifier) < 4 or modifier[0] != 'y':
       raise InvalidModifier(modifier)
-    ymodifier = modifier.split(modifier[1])
-    if len(ymodifier) != 4:
+    y_modifier = modifier.split(modifier[1])
+    if len(y_modifier) != 4:
       raise InvalidModifier(modifier)
-    ymodifier[1] = cranges(ymodifier[1])
-    ymodifier[2] = cranges(ymodifier[2])
-    if 'i' in ymodifier[3].lower():
-      # self.table = string.maketrans(ymodifier[1].lower() + ymodifier[1].upper(),
-      #                               2 * ymodifier[2])
-      self.src = ymodifier[1].lower() + ymodifier[1].upper()
-      self.dst = 2 * ymodifier[2]
-    else:
-      # self.table = string.maketrans(ymodifier[1], ymodifier[2])
-      self.src = ymodifier[1]
-      self.dst = ymodifier[2]
-    if len(self.src) != len(self.dst):
+    src = cranges(y_modifier[1])
+    dst = cranges(y_modifier[2])
+    flags = y_modifier[3]
+    if len(src) != len(dst):
       raise InvalidModifier(modifier)
+    if 'i' in flags.lower():
+      src = src.lower() + src.upper()
+      dst = 2 * dst
+    self.src = src
+    self.dst = dst
+
   def __call__(self, value):
-    # return string.translate(val, self.table)
-    # TODO: this could be *much* more efficient...
-    ret = ''
-    for ch in value:
-      idx = self.src.find(ch)
-      if idx < 0:
-        ret += ch
-      else:
-        ret += self.dst[idx]
-    return ret
+    if isinstance(value, unicode):
+      table = {ord(src_char) : ord(dst_char) for src_char, dst_char in zip(self.src, self.dst)}
+    else:
+      assert(isinstance(value, str))
+      table = string.maketrans(self.src, self.dst)
+    return value.translate(table)
 
 #------------------------------------------------------------------------------
 class ReadlineIterator(object):
