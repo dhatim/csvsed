@@ -44,6 +44,13 @@ field 2.1,field 2.2,field 2.3,field 2.4,field 2.5
 field 3.1,field 3.2,field 3.3,field 3.4,field 3.5
 '''
 
+  baseCsvUnicode = '''\
+latin_lower,latin_upper,latin_full,greek_lower,greek_upper,greek_full
+a,A,alpha,α,Α,άλφα
+b,B,beta,β,Β,βήτα
+g,G,gamma,γ,Γ,γάμμα
+'''
+
   #----------------------------------------------------------------------------
   def test_charRanges(self):
     self.assertEqual('abcdef', sed.cranges('a-f'))
@@ -60,6 +67,11 @@ field 3.1,field 3.2,field 3.3,field 3.4,field 3.5
     self.assertEqual(sed.Y_modifier('y/abc/def/i')('b,A,C'), 'e,d,f')
     self.assertEqual(sed.Y_modifier('y/a-z/A-Z/')('Back-Up'), 'BACK-UP')
     self.assertEqual(sed.Y_modifier('y/a\-z/A~Z/')('Back-Up'), 'BAck~Up')
+
+  def test_modifier_y_directcall_unicode(self):
+    self.assertEqual(sed.Y_modifier(u'y/αβγ/abg/')(u'β,α,γ'), u'b,a,g')
+    self.assertEqual(sed.Y_modifier(u'y/abg/αβγ/')(u'b,a,g'), u'β,α,γ')
+    self.assertEqual(sed.Y_modifier(u'y/αβγ/γαβ/')(u'β,α,γ'), u'α,γ,β')
 
   #----------------------------------------------------------------------------
   def test_modifier_y_toupper(self):
@@ -78,6 +90,12 @@ field 3.1,field 3.2,FIELD 3.3,field 3.4,field 3.5
     self.assertEqual(sed.S_modifier('s/a/b/g')('abcABC'), 'bbcABC')
     self.assertEqual(sed.S_modifier('s/a/b/gi')('abcABC'), 'bbcbBC')
 
+  def test_modifier_s_directcall_unicode(self):
+    self.assertEqual(sed.S_modifier(u's/π/p/')(u'κάππα'), u'κάpπα')
+    self.assertEqual(sed.S_modifier(u's/π/p/g')(u'κάππα'), u'κάppα')
+    self.assertEqual(sed.S_modifier(u's/π/Π/')(u'κάππα'), u'κάΠπα')
+    self.assertEqual(sed.S_modifier(u's/π/Π/g')(u'κάππα'), u'κάΠΠα')
+
   #----------------------------------------------------------------------------
   def test_modifier_s_noflags(self):
     chk = '''\
@@ -87,6 +105,15 @@ xield 2.1,field 2.2,field 2.3,field 2.4,field 2.5
 xield 3.1,field 3.2,field 3.3,field 3.4,field 3.5
 '''
     self.assertMultiLineEqual(run(self.baseCsv, {0: 's/./x/'}), chk)
+
+  def test_modifier_s_noflags_unicode(self):
+    chk = '''\
+latin_lower,latin_upper,latin_full,greek_lower,greek_upper,greek_full
+a,A,alpha,α,Α,*λφα
+b,B,beta,β,Β,*ήτα
+g,G,gamma,γ,Γ,*άμμα
+'''
+    self.assertMultiLineEqual(run(self.baseCsvUnicode, {5: 's/./*/'}), chk)
 
   #----------------------------------------------------------------------------
   def test_modifier_s_gflag(self):
@@ -98,6 +125,15 @@ xxxxxxxxx,field 3.2,field 3.3,field 3.4,field 3.5
 '''
     self.assertMultiLineEqual(run(self.baseCsv, {0: 's/./x/g'}), chk)
 
+  def test_modifier_s_gflag_unicode(self):
+    chk = '''\
+latin_lower,latin_upper,latin_full,greek_lower,greek_upper,greek_full
+a,A,alpha,α,Α,****
+b,B,beta,β,Β,****
+g,G,gamma,γ,Γ,*****
+'''
+    self.assertMultiLineEqual(run(self.baseCsvUnicode, {5: 's/./*/g'}), chk)
+
   #----------------------------------------------------------------------------
   def test_modifier_s_multicol(self):
     chk = '''\
@@ -107,6 +143,15 @@ xxxxxxxxx,field 2.2,yyyyyyyyy,field 2.4,field 2.5
 xxxxxxxxx,field 3.2,yyyyyyyyy,field 3.4,field 3.5
 '''
     self.assertMultiLineEqual(run(self.baseCsv, {0: 's/./x/g', 2: 's/./y/g'}), chk)
+
+  def test_modifier_s_multicol_unicode(self):
+    chk = '''\
+latin_lower,latin_upper,latin_full,greek_lower,greek_upper,greek_full
+a,A,alpha,_,Α,****
+b,B,beta,_,Β,****
+g,G,gamma,_,Γ,*****
+'''
+    self.assertMultiLineEqual(run(self.baseCsvUnicode, {3: 's/./_/g', 5: u's/./*/g'}), chk)
 
   #----------------------------------------------------------------------------
   def test_modifier_s_colbyname(self):
@@ -119,10 +164,23 @@ xxxxxxxxx,field 3.2,yyyyyyyyy,field 3.4,field 3.5
     self.assertMultiLineEqual(
       run(self.baseCsv, {'header 1': 's/./x/g', 'header 3': 's/./y/g'}), chk)
 
+  def test_modifier_s_colbyname_unicode(self):
+    chk = '''\
+latin_lower,latin_upper,latin_full,greek_lower,greek_upper,greek_full
+a,A,alpha,_,Α,****
+b,B,beta,_,Β,****
+g,G,gamma,_,Γ,*****
+'''
+    self.assertMultiLineEqual(run(self.baseCsvUnicode, {'greek_lower': 's/./_/g', 'greek_full': 's/./*/g'}), chk)
+
   #----------------------------------------------------------------------------
   def test_modifier_s_nomatch(self):
     chk = self.baseCsv
     self.assertMultiLineEqual(run(self.baseCsv, {0: 's/[IE]/../'}), chk)
+
+  def test_modifier_s_nomatch_unicode(self):
+    chk = self.baseCsvUnicode
+    self.assertMultiLineEqual(run(self.baseCsvUnicode, {5: 's/[a-zA-Z0-9€]/../'}), chk)
 
   #----------------------------------------------------------------------------
   def test_modifier_s_iflag(self):
@@ -149,6 +207,11 @@ f....ld 3.1,field 3.2,field 3.3,field 3.4,field 3.5
     src = 'cell 1,"123,456,789.0"\n'
     chk = 'cell 1,123456789.0\n'
     self.assertMultiLineEqual(run(src, {1: 's/,//g'}, header=False), chk)
+
+  def test_modifier_s_remove_unicode(self):
+    src = 'cell 1,"άλφα,βήτα,γάμμα"\n'
+    chk = 'cell 1,άααάα\n'
+    self.assertMultiLineEqual(run(src, {1: u's/(,|[^άα])//g'}, header=False), chk)
 
   #----------------------------------------------------------------------------
   def test_modifier_e_directcall(self):
