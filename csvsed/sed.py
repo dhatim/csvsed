@@ -31,17 +31,8 @@ from csvkit.exceptions import ColumnIdentifierError
 class InvalidModifier(Exception):
 
   def __init__(self, message):
-    if isinstance(message, unicode):
-        super(InvalidModifier, self).__init__(message.encode('utf-8'))
-        self.message = message
-    elif isinstance(message, str):
-        super(InvalidModifier, self).__init__(message)
-        self.message = message.decode('utf-8')
-    else:
-        raise TypeError
-
-  def __unicode__(self):
-    return 'Invalid modifier: %s' % self.message
+    super(InvalidModifier, self).__init__(message.encode('utf-8'))
+    self.message = 'Invalid modifier: %s' % self.message
 
 #------------------------------------------------------------------------------
 class CsvFilter(object):
@@ -218,16 +209,10 @@ class Y_modifier(object):
     if 'i' in flags.lower():
       src = src.lower() + src.upper()
       dst = 2 * dst
-    self.src = src
-    self.dst = dst
+    self.table = {ord(src_char) : ord(dst_char) for src_char, dst_char in zip(src, dst)}
 
   def __call__(self, value):
-    if isinstance(value, unicode):
-      table = {ord(src_char) : ord(dst_char) for src_char, dst_char in zip(self.src, self.dst)}
-    else:
-      assert(isinstance(value, str))
-      table = string.maketrans(self.src, self.dst)
-    return value.translate(table)
+    return value.translate(self.table)
 
 #------------------------------------------------------------------------------
 class ReadlineIterator(object):

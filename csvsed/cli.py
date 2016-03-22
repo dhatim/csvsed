@@ -62,8 +62,9 @@ class CsvSed(CSVKitUtility):
 
     if self.args.modifier is None:
       self.argparser.error('-r must be specified, unless using the -n option.')
-    else:
-      # account for unicode modifiers:
+
+    # work exclusively with unicode modifiers
+    if isinstance(self.args.modifier, str):
       self.args.modifier = self.args.modifier.decode('utf-8')
 
     reader_kwargs = self.reader_kwargs
