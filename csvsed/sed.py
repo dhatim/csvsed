@@ -29,10 +29,8 @@ from csvkit.exceptions import ColumnIdentifierError
 
 #------------------------------------------------------------------------------
 class InvalidModifier(Exception):
-
   def __init__(self, message):
-    super(InvalidModifier, self).__init__(message.encode('utf-8'))
-    self.message = 'Invalid modifier: %s' % self.message
+    super(InvalidModifier, self).__init__('Invalid modifier: %s' % message)
 
 #------------------------------------------------------------------------------
 class CsvFilter(object):
@@ -141,33 +139,84 @@ def standardize_modifiers(column_names, modifiers):
     return p2
   except AttributeError:
     # Sequence of modifiers
-    return dict((i, modifier_as_function(x)) for i, x in enumerate(modifiers))
+    return dict((i, modifier_as_function(x)) for i, x in enumerate(modifiers.values()))
 
 #------------------------------------------------------------------------------
 def modifier_as_function(modifier):
-  # modifier is modifier function
+  # modifier is a callable modifier
   if hasattr(modifier, '__call__'):
-    return modifier
-  # modifier is a modifier string
-  return eval(modifier[0].upper() + '_modifier')(modifier)
+    modifier_obj = modifier
+  # modifier is a string modifier
+  else:
+    supported_modifier_types = ['s', 'y', 'e']
+    if not modifier:
+      raise InvalidModifier('empty modifier')
+    modifier_type = modifier[0]
+    if modifier_type not in supported_modifier_types:
+      raise InvalidModifier('unsupported type "%s" in modifier "%s"; supported modifier types are %s' % (modifier_type, modifier, ', '.join(supported_modifier_types)))
+    # perform dispatch
+    modifier_obj = eval('%s_modifier' % modifier_type.upper())(modifier)
 
+  return modifier_obj
 
 #------------------------------------------------------------------------------
-class S_modifier(object):
-  'The "substitution" modifier ("s/REGEX/REPL/FLAGS").'
+class Modifier(object):
   def __init__(self, modifier):
-    super(S_modifier, self).__init__()
-    if not modifier or len(modifier) < 4 or modifier[0] != 's':
-      raise InvalidModifier(modifier)
-    s_modifier = modifier.split(modifier[1])
-    if len(s_modifier) != 4:
-      raise InvalidModifier(modifier)
-    flags = 0
-    for flag in s_modifier[3].upper():
-      flags |= getattr(re, flag, 0)
-    self.regex = re.compile(s_modifier[1], flags)
-    self.repl  = s_modifier[2]
-    self.count = 0 if 'g' in s_modifier[3].lower() else 1
+    if len(modifier) < 4:
+      raise InvalidModifier('modifier is too short: "%s"' % modifier)
+
+    modifier_type = modifier[0]
+    modifier_sep = modifier[1]
+    modifier_parts = modifier.split(modifier_sep)
+    if len(modifier_parts) != 4:
+      modifier_form = self.modifier_form % (modifier_sep, modifier_sep, modifier_sep)
+      raise InvalidModifier('expected modifier of form "%s", got "%s"' % (modifier_form, modifier))
+
+    modifier_lhs = modifier_parts[1]
+    if not modifier_lhs:
+      raise InvalidModifier('%s: no previous regular expression' % modifier)
+    self.modifier_lhs = modifier_lhs
+
+    modifier_rhs = modifier_parts[2]
+    self.modifier_rhs = modifier_rhs
+
+    flags = modifier_parts[3]
+    for flag in flags:
+      if flag not in self.supported_flags:
+        message = 'invalid flag "%s" in "%s"' % (flag, modifier)
+        if len(self.supported_flags) == 0:
+          message += '; no flag is supported for type "%s"' % modifier_type
+        if len(self.supported_flags) == 1:
+          message += '; the only supported flag for type "%s" is %s' % (modifier_type, self.supported_flags[0])
+        if len(self.supported_flags) > 1:
+          message += '; supported flags for type "%s" are %s' % (modifier_type, ', '.join(self.supported_flags))
+        raise InvalidModifier(message)
+    self.modifier_flags = flags
+
+#------------------------------------------------------------------------------
+class S_modifier(Modifier):
+  '''
+  The "substitution" modifier ("s/REGEX/REPL/FLAGS")
+  '''
+
+  def __init__(self, modifier):
+    self.modifier_form = 's%sEXPR%sREPL%sFLAGS'
+    self.supported_flags = ['i', 'g', 'l', 'm', 's', 'u', 'x']
+    super(S_modifier, self).__init__(modifier)
+
+    self.repl = self.modifier_rhs
+
+    re_flags = 0
+    for flag in self.modifier_flags:
+      re_flags |= getattr(re, flag.upper(), 0)
+
+    try:
+      self.regex = re.compile(self.modifier_lhs, re_flags)
+    except re.error, e:
+      raise InvalidModifier('%s in "%s"' % (e.message, modifier))
+
+    self.count = 0 if 'g' in self.modifier_flags else 1
+
   def __call__(self, value):
     return self.regex.sub(self.repl, value, count=self.count)
 
@@ -191,24 +240,26 @@ def cranges(modifier):
   return ret
 
 #------------------------------------------------------------------------------
-class Y_modifier(object):
-  'The "transliterate" modifier ("y/SOURCE/DESTINATION/FLAGS").'
+class Y_modifier(Modifier):
+  '''
+  The "transliterate" modifier ("y/SRC/DST/FLAGS")
+  '''
 
   def __init__(self, modifier):
-    super(Y_modifier, self).__init__()
-    if not modifier or len(modifier) < 4 or modifier[0] != 'y':
-      raise InvalidModifier(modifier)
-    y_modifier = modifier.split(modifier[1])
-    if len(y_modifier) != 4:
-      raise InvalidModifier(modifier)
-    src = cranges(y_modifier[1])
-    dst = cranges(y_modifier[2])
-    flags = y_modifier[3]
+    self.modifier_form = 's%sSRC%sDST%sFLAGS'
+    self.supported_flags = ['i']
+    super(Y_modifier, self).__init__(modifier)
+
+    src = cranges(self.modifier_lhs)
+    dst = cranges(self.modifier_rhs)
+
     if len(src) != len(dst):
-      raise InvalidModifier(modifier)
-    if 'i' in flags.lower():
+      raise InvalidModifier('expecting source and destination to have the same length, but %i != %i, got "%s"' % (src, dst, modifier))
+
+    if 'i' in self.flags:
       src = src.lower() + src.upper()
       dst = 2 * dst
+
     self.table = {ord(src_char) : ord(dst_char) for src_char, dst_char in zip(src, dst)}
 
   def __call__(self, value):
