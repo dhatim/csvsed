@@ -62,18 +62,18 @@ g,G,gamma,γ,Γ,γάμμα
 
   #----------------------------------------------------------------------------
   def test_modifier_y_directcall(self):
-    self.assertEqual(sed.Y_modifier(u'y/abc/def/')(u'b,a,c'), u'e,d,f')
-    self.assertEqual(sed.Y_modifier(u'y/abc/def/')(u'b,A,C'), u'e,A,C')
-    self.assertEqual(sed.Y_modifier(u'y/abc/def/i')(u'b,A,C'), u'e,d,f')
-    self.assertEqual(sed.Y_modifier(u'y/a-z/A-Z/')(u'Back-Up'), u'BACK-UP')
-    self.assertEqual(sed.Y_modifier(u'y/a\-z/A~Z/')(u'Back-Up'), u'BAck~Up')
+    self.assertEqual(sed.modifier_as_function(u'y/abc/def/')(u'b,a,c'), u'e,d,f')
+    self.assertEqual(sed.modifier_as_function(u'y/abc/def/')(u'b,A,C'), u'e,A,C')
+    self.assertEqual(sed.modifier_as_function(u'y/abc/def/i')(u'b,A,C'), u'e,d,f')
+    self.assertEqual(sed.modifier_as_function(u'y/a-z/A-Z/')(u'Back-Up'), u'BACK-UP')
+    self.assertEqual(sed.modifier_as_function(u'y/a\-z/A~Z/')(u'Back-Up'), u'BAck~Up')
 
   def test_modifier_y_directcall_unicode(self):
-    self.assertEqual(sed.Y_modifier(u'y/abc/def/')(u'b,a,c'), u'e,d,f')
-    self.assertEqual(sed.Y_modifier(u'y/abc/def/')(u'b,a,c'), u'e,d,f')
-    self.assertEqual(sed.Y_modifier(u'y/αβγ/abg/')(u'β,α,γ'), u'b,a,g')
-    self.assertEqual(sed.Y_modifier(u'y/abg/αβγ/')(u'b,a,g'), u'β,α,γ')
-    self.assertEqual(sed.Y_modifier(u'y/αβγ/γαβ/')(u'β,α,γ'), u'α,γ,β')
+    self.assertEqual(sed.modifier_as_function(u'y/abc/def/')(u'b,a,c'), u'e,d,f')
+    self.assertEqual(sed.modifier_as_function(u'y/abc/def/')(u'b,a,c'), u'e,d,f')
+    self.assertEqual(sed.modifier_as_function(u'y/αβγ/abg/')(u'β,α,γ'), u'b,a,g')
+    self.assertEqual(sed.modifier_as_function(u'y/abg/αβγ/')(u'b,a,g'), u'β,α,γ')
+    self.assertEqual(sed.modifier_as_function(u'y/αβγ/γαβ/')(u'β,α,γ'), u'α,γ,β')
 
   #----------------------------------------------------------------------------
   def test_modifier_y_toupper(self):
@@ -87,16 +87,16 @@ field 3.1,field 3.2,FIELD 3.3,field 3.4,field 3.5
 
   #----------------------------------------------------------------------------
   def test_modifier_s_directcall(self):
-    self.assertEqual(sed.S_modifier(u's/a/b/')(u'abcabc'), u'bbcabc')
-    self.assertEqual(sed.S_modifier(u's/a/b/g')(u'abcabc'), u'bbcbbc')
-    self.assertEqual(sed.S_modifier(u's/a/b/g')(u'abcABC'), u'bbcABC')
-    self.assertEqual(sed.S_modifier(u's/a/b/gi')(u'abcABC'), u'bbcbBC')
+    self.assertEqual(sed.modifier_as_function(u's/a/b/')(u'abcabc'), u'bbcabc')
+    self.assertEqual(sed.modifier_as_function(u's/a/b/g')(u'abcabc'), u'bbcbbc')
+    self.assertEqual(sed.modifier_as_function(u's/a/b/g')(u'abcABC'), u'bbcABC')
+    self.assertEqual(sed.modifier_as_function(u's/a/b/gi')(u'abcABC'), u'bbcbBC')
 
   def test_modifier_s_directcall_unicode(self):
-    self.assertEqual(sed.S_modifier(u's/π/p/')(u'κάππα'), u'κάpπα')
-    self.assertEqual(sed.S_modifier(u's/π/p/g')(u'κάππα'), u'κάppα')
-    self.assertEqual(sed.S_modifier(u's/π/Π/')(u'κάππα'), u'κάΠπα')
-    self.assertEqual(sed.S_modifier(u's/π/Π/g')(u'κάππα'), u'κάΠΠα')
+    self.assertEqual(sed.modifier_as_function(u's/π/p/')(u'κάππα'), u'κάpπα')
+    self.assertEqual(sed.modifier_as_function(u's/π/p/g')(u'κάππα'), u'κάppα')
+    self.assertEqual(sed.modifier_as_function(u's/π/Π/')(u'κάππα'), u'κάΠπα')
+    self.assertEqual(sed.modifier_as_function(u's/π/Π/g')(u'κάππα'), u'κάΠΠα')
 
   #----------------------------------------------------------------------------
   def test_modifier_s_noflags(self):
@@ -217,8 +217,8 @@ f....ld 3.1,field 3.2,field 3.3,field 3.4,field 3.5
 
   #----------------------------------------------------------------------------
   def test_modifier_e_directcall(self):
-    self.assertEqual(sed.E_modifier('e/tr ab xy/')('b,a,c'), 'y,x,c')
-    self.assertEqual(sed.E_modifier('e/xargs -I {} echo "{}^2" | bc/')('4'), '16')
+    self.assertEqual(sed.modifier_as_function('e/tr ab xy/')('b,a,c'), 'y,x,c')
+    self.assertEqual(sed.modifier_as_function('e/xargs -I {} echo "{}^2" | bc/')('4'), '16')
 
   #----------------------------------------------------------------------------
   def test_modifier_e_multipipe(self):

@@ -256,7 +256,7 @@ class Y_modifier(Modifier):
     if len(src) != len(dst):
       raise InvalidModifier('expecting source and destination to have the same length, but %i != %i, got "%s"' % (src, dst, modifier))
 
-    if 'i' in self.flags:
+    if 'i' in self.modifier_flags:
       src = src.lower() + src.upper()
       dst = 2 * dst
 
