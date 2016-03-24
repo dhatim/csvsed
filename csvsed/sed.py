@@ -173,25 +173,27 @@ class Modifier(object):
   """
 
   def __init__(self, modifier):
-    if len(modifier) < 4:
+    modifier_length = self.modifier_form.count('/') + 1
+
+    if len(modifier) < modifier_length:
       raise InvalidModifier('modifier is too short: `%s`' % modifier)
 
     modifier_type = modifier[0]
     modifier_sep = modifier[1]
     modifier_parts = modifier.split(modifier_sep)
-    if len(modifier_parts) != 4:
-      modifier_form = self.modifier_form % (modifier_sep, modifier_sep, modifier_sep)
-      raise InvalidModifier('expected modifier of form `%s`, got `%s`' % (modifier_form, modifier))
+    if len(modifier_parts) != modifier_length:
+      modifier_form = self.modifier_form.replace('/', modifier_sep)
+      raise InvalidModifier('expected modifier of the form `%s`, got `%s`' % (modifier_form, modifier))
 
     modifier_lhs = modifier_parts[1]
     if not modifier_lhs:
       raise InvalidModifier('%s: no previous regular expression' % modifier)
     self.modifier_lhs = modifier_lhs
 
-    modifier_rhs = modifier_parts[2]
+    modifier_rhs = modifier_parts[2] if modifier_type != 'e' else ''
     self.modifier_rhs = modifier_rhs
 
-    flags = modifier_parts[3]
+    flags = modifier_parts[3] if modifier_type != 'e' else modifier_parts[2]
     for flag in flags:
       if flag not in self.supported_flags:
         message = 'invalid flag `%s` in `%s`' % (flag, modifier)
@@ -227,8 +229,9 @@ class S_modifier(Modifier):
   """
 
   def __init__(self, modifier):
-    self.modifier_form = 's%sEXPR%sREPL%sFLAGS'
+    self.modifier_form = 's/EXPR/REPL/FLAGS'
     self.supported_flags = ['i', 'g', 'l', 'm', 's', 'u', 'x']
+
     super(S_modifier, self).__init__(modifier)
 
     self.repl = self.modifier_rhs
@@ -299,7 +302,7 @@ class Y_modifier(Modifier):
   """
 
   def __init__(self, modifier):
-    self.modifier_form = 's%sSRC%sDST%sFLAGS'
+    self.modifier_form = 's/SRC/DST/FLAGS'
     self.supported_flags = ['i']
     super(Y_modifier, self).__init__(modifier)
 
@@ -319,62 +322,28 @@ class Y_modifier(Modifier):
     return value.translate(self.table)
 
 #------------------------------------------------------------------------------
-class ReadlineIterator(object):
+class E_modifier(Modifier):
   """
-  An iterator that calls readline() to get its next value
-  """
-
-  # NOTE: this is a hack to make csv.reader not read-ahead.
-  def __init__(self, f): self.f = f
-  def __iter__(self): return self
-  def next(self):
-    line = self.f.readline()
-    if not line: raise StopIteration
-    return line
-
-#------------------------------------------------------------------------------
-class E_modifier(object):
-  """
-  The "execute" external program modifier ("e/PROGRAM+OPTIONS/FLAGS")
+  The "execute" external program modifier ("e/PROGRAM+OPTIONS/")
   """
 
   def __init__(self, modifier):
-    super(E_modifier, self).__init__()
-    if not modifier or len(modifier) < 3 or modifier[0] != 'e':
-      raise InvalidModifier(modifier)
-    emodifier = modifier.split(modifier[1])
-    if len(emodifier) != 3:
-      raise InvalidModifier(modifier)
-    emodifier[2] = emodifier[2].lower()
-    self.command = emodifier[1]
-    self.index   = 1 if 'i' in emodifier[2] else None
-    self.csv     = 'c' in emodifier[2]
-    if not self.csv:
-      return
-    self.proc = subprocess.Popen(
-      self.command, shell=True, bufsize=0,
-      stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    self.writer = csvkit.CSVKitWriter(self.proc.stdin)
-    # note: not using csvkit's reader because there is no easy way of
-    # making it not read-ahead (which breaks the "continuous" mode).
-    # self.reader = csvkit.CSVKitReader(self.proc.stdout)
-    # todo: fix csvkit so that it can be used in non-read-ahead mode.
-    self.reader = csv.reader(ReadlineIterator(self.proc.stdout))
+    self.modifier_form = 's/PROGRAM+OPTIONS/'
+    self.supported_flags = []
+    super(E_modifier, self).__init__(modifier)
+    self.command = self.modifier_lhs
+
   def __call__(self, value):
-    if not self.csv:
-      return self.execOnce(value)
-    self.writer.writerow([value])
-    return self.reader.next()[0].decode('utf-8')
-  def execOnce(self, value):
-    p = subprocess.Popen(
+    proc = subprocess.Popen(
       self.command, shell=True,
       stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    output, errput = p.communicate(value)
-    if p.returncode != 0:
-      raise Exception('command `%s` failed: %s' % (self.command, errput))
-    if output[-1] == '\n':
-      output = output[:-1]
-    return output
+    out, err = proc.communicate(value)
+
+    if proc.returncode != 0:
+      raise Exception('command `%s` failed: %s' % (self.command, err))
+
+    out = out.rstrip('\n')
+    return out
 
 #------------------------------------------------------------------------------
 # end of $Id$
