@@ -159,7 +159,7 @@ def modifier_as_function(modifier):
       raise InvalidModifier('empty modifier')
     modifier_type = modifier[0]
     if modifier_type not in supported_modifier_types:
-      raise InvalidModifier('unsupported type "%s" in modifier "%s"; supported modifier types are %s' % (modifier_type, modifier, ', '.join(supported_modifier_types)))
+      raise InvalidModifier('unsupported type `%s` in modifier `%s`; supported modifier types are %s' % (modifier_type, modifier, ', '.join(supported_modifier_types)))
     # perform dispatch
     callable_modifier = eval('%s_modifier' % modifier_type.upper())(modifier)
 
@@ -174,14 +174,14 @@ class Modifier(object):
 
   def __init__(self, modifier):
     if len(modifier) < 4:
-      raise InvalidModifier('modifier is too short: "%s"' % modifier)
+      raise InvalidModifier('modifier is too short: `%s`' % modifier)
 
     modifier_type = modifier[0]
     modifier_sep = modifier[1]
     modifier_parts = modifier.split(modifier_sep)
     if len(modifier_parts) != 4:
       modifier_form = self.modifier_form % (modifier_sep, modifier_sep, modifier_sep)
-      raise InvalidModifier('expected modifier of form "%s", got "%s"' % (modifier_form, modifier))
+      raise InvalidModifier('expected modifier of form `%s`, got `%s`' % (modifier_form, modifier))
 
     modifier_lhs = modifier_parts[1]
     if not modifier_lhs:
@@ -194,13 +194,13 @@ class Modifier(object):
     flags = modifier_parts[3]
     for flag in flags:
       if flag not in self.supported_flags:
-        message = 'invalid flag "%s" in "%s"' % (flag, modifier)
+        message = 'invalid flag `%s` in `%s`' % (flag, modifier)
         if len(self.supported_flags) == 0:
-          message += '; no flag is supported for type "%s"' % modifier_type
+          message += '; no flag is supported for type `%s`' % modifier_type
         if len(self.supported_flags) == 1:
-          message += '; the only supported flag for type "%s" is %s' % (modifier_type, self.supported_flags[0])
+          message += '; the only supported flag for type `%s` is %s' % (modifier_type, self.supported_flags[0])
         if len(self.supported_flags) > 1:
-          message += '; supported flags for type "%s" are %s' % (modifier_type, ', '.join(self.supported_flags))
+          message += '; supported flags for type `%s` are %s' % (modifier_type, ', '.join(self.supported_flags))
         raise InvalidModifier(message)
     self.modifier_flags = flags
 
@@ -240,7 +240,7 @@ class S_modifier(Modifier):
     try:
       self.regex = re.compile(self.modifier_lhs, re_flags)
     except re.error, e:
-      raise InvalidModifier('%s in "%s"' % (e.message, modifier))
+      raise InvalidModifier('%s in `%s`' % (e.message, modifier))
 
     self.count = 0 if 'g' in self.modifier_flags else 1
 
@@ -307,7 +307,7 @@ class Y_modifier(Modifier):
     dst = cranges(self.modifier_rhs)
 
     if len(src) != len(dst):
-      raise InvalidModifier('expecting source and destination to have the same length, but %i != %i, got "%s"' % (src, dst, modifier))
+      raise InvalidModifier('expecting source and destination to have the same length, but %i != %i, got `%s`' % (src, dst, modifier))
 
     if 'i' in self.modifier_flags:
       src = src.lower() + src.upper()
@@ -371,7 +371,7 @@ class E_modifier(object):
       stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, errput = p.communicate(value)
     if p.returncode != 0:
-      raise Exception('command "%s" failed: %s' % (self.command, errput))
+      raise Exception('command `%s` failed: %s' % (self.command, errput))
     if output[-1] == '\n':
       output = output[:-1]
     return output
