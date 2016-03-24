@@ -217,8 +217,11 @@ f....ld 3.1,field 3.2,field 3.3,field 3.4,field 3.5
 
   #----------------------------------------------------------------------------
   def test_modifier_e_directcall(self):
-    self.assertEqual(sed.modifier_as_function('e/tr ab xy/')('b,a,c'), 'y,x,c')
-    self.assertEqual(sed.modifier_as_function('e/xargs -I {} echo "{}^2" | bc/')('4'), '16')
+    self.assertEqual(sed.modifier_as_function(u'e/tr ab xy/')(u'b,a,c'), u'y,x,c')
+    self.assertEqual(sed.modifier_as_function(u'e/xargs -I {} echo "{}^2" | bc/')(u'4'), u'16')
+
+  def test_modifier_e_directcall_unicode(self):
+    self.assertEqual(sed.modifier_as_function(u'e/sed "y~฿₯﷼￡￥~￥￡﷼₯฿~"/')(u'￥￡﷼₯฿'), u'฿₯﷼￡￥')
 
   #----------------------------------------------------------------------------
   def test_modifier_e_multipipe(self):
@@ -230,6 +233,37 @@ field 3.1,field 3.2,field 3.3,11.56,field 3.5
 '''
     self.assertMultiLineEqual(
       run(self.baseCsv, {3: 'e/cut -f2 -d" " | xargs -I {} echo "scale=3;{}^2" | bc/'}), chk)
+
+  def test_modifier_e_unicode(self):
+    chk = '''\
+latin_lower,latin_upper,latin_full,greek_lower,greek_upper,greek_full
+a,A,alpha,α,Α,άλφαάλφαάλφα
+b,B,beta,β,Β,βήταβήταβήτα
+g,G,gamma,γ,Γ,γάμμαγάμμαγάμμα
+'''
+    self.assertMultiLineEqual(
+      run(self.baseCsvUnicode, {5: 'e/xargs -I {} echo "{}{}{}"/'}), chk)
+
+  def test_modifier_e_comma_in_output(self):
+    chk = '''\
+latin_lower,latin_upper,latin_full,greek_lower,greek_upper,greek_full
+a,A,alpha,α,Α,"άλφα,άλφα,άλφα"
+b,B,beta,β,Β,"βήτα,βήτα,βήτα"
+g,G,gamma,γ,Γ,"γάμμα,γάμμα,γάμμα"
+'''
+    self.assertMultiLineEqual(
+      run(self.baseCsvUnicode, {5: 'e/xargs -I {} echo "{},{},{}"/'}), chk)
+
+  def test_modifier_e_quotes_in_output(self):
+    chk = '''\
+latin_lower,latin_upper,latin_full,greek_lower,greek_upper,greek_full
+a,A,alpha,α,Α,"άλφα,""άλφα"",άλφα"
+b,B,beta,β,Β,"βήτα,""βήτα"",βήτα"
+g,G,gamma,γ,Γ,"γάμμα,""γάμμα"",γάμμα"
+'''
+    self.assertMultiLineEqual(
+      run(self.baseCsvUnicode, {5: 'e/xargs -I {} echo "{},\\"{}\\",{}"/'}), chk)
+
 
 #------------------------------------------------------------------------------
 # end of $Id$

@@ -24,7 +24,7 @@ A stream-oriented CSV modification tool. Like a stripped-down "sed"
 command, but for tabular data.
 '''
 
-import re, string, types, subprocess, csvkit, csv
+import re, subprocess, sys
 from csvkit.exceptions import ColumnIdentifierError
 
 #------------------------------------------------------------------------------
@@ -337,12 +337,17 @@ class E_modifier(Modifier):
     proc = subprocess.Popen(
       self.command, shell=True,
       stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    out, err = proc.communicate(value)
+
+    out, err = proc.communicate(value.encode('utf-8'))
+    out = out.decode('utf-8')
+    err = err.decode('utf-8')
 
     if proc.returncode != 0:
-      raise Exception('command `%s` failed: %s' % (self.command, err))
+      print type('command `%s` failed: %s' % (self.command, err))
+      sys.stderr.write('command `%s` failed: %s' % (self.command, err))
+      sys.exit(1)
 
-    out = out.rstrip('\n')
+    out = out.replace('\n', '')
     return out
 
 #------------------------------------------------------------------------------
