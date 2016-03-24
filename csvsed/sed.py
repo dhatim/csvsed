@@ -86,6 +86,21 @@ class CsvFilter(object):
         itself. Only the "i" flag, indicating case-insensitive
         matching of `SRC`, is supported.
 
+      * Execution: "e/REGEX/COMMAND/FLAGS"
+
+        For cells matching `REGEX`, execute (using bash) the external
+        command `COMMAND`, which can back-references to `REGEX`. All
+        new lines are stripped in the output of `COMMAND`.
+
+        The following flags are supported for `REGEX`:
+
+        * i: case-insensitive
+        * l: uses locale-dependent character classes
+        * m: enables multiline matching for "^" and "$"
+        * s: "." also matches the newline character
+        * u: enables unicode escape sequences
+        * x: `REGEX` uses verbose descriptors & comments
+
       Note that the "/" character can be any character as long as it
       is used consistently and not used within the modifier,
       e.g. ``s|a|b|`` is equivalent to ``s/a/b/``.
@@ -173,15 +188,13 @@ class Modifier(object):
   """
 
   def __init__(self, modifier):
-    modifier_length = self.modifier_form.count('/') + 1
-
-    if len(modifier) < modifier_length:
+    if len(modifier) < 4:
       raise InvalidModifier('modifier is too short: `%s`' % modifier)
 
     modifier_type = modifier[0]
     modifier_sep = modifier[1]
     modifier_parts = modifier.split(modifier_sep)
-    if len(modifier_parts) != modifier_length:
+    if len(modifier_parts) != 4:
       modifier_form = self.modifier_form.replace('/', modifier_sep)
       raise InvalidModifier('expected modifier of the form `%s`, got `%s`' % (modifier_form, modifier))
 
@@ -190,10 +203,10 @@ class Modifier(object):
       raise InvalidModifier('%s: no previous regular expression' % modifier)
     self.modifier_lhs = modifier_lhs
 
-    modifier_rhs = modifier_parts[2] if modifier_type != 'e' else ''
+    modifier_rhs = modifier_parts[2]
     self.modifier_rhs = modifier_rhs
 
-    flags = modifier_parts[3] if modifier_type != 'e' else modifier_parts[2]
+    flags = modifier_parts[3]
     for flag in flags:
       if flag not in self.supported_flags:
         message = 'invalid flag `%s` in `%s`' % (flag, modifier)
@@ -229,7 +242,7 @@ class S_modifier(Modifier):
   """
 
   def __init__(self, modifier):
-    self.modifier_form = 's/EXPR/REPL/FLAGS'
+    self.modifier_form = 's/REGEX/REPL/FLAGS'
     self.supported_flags = ['i', 'g', 'l', 'm', 's', 'u', 'x']
 
     super(S_modifier, self).__init__(modifier)
@@ -324,27 +337,58 @@ class Y_modifier(Modifier):
 #------------------------------------------------------------------------------
 class E_modifier(Modifier):
   """
-  The "execute" external program modifier ("e/PROGRAM+OPTIONS/")
+  The "execute" external program modifier ("s/REGEX/COMMAND/FLAGS").
+
+    For cells matching `REGEX`, execute (using bash) the external
+    command `COMMAND`, which can back-references to `REGEX`. All
+    new lines are stripped in the output of `COMMAND`.
+
+    The following flags are supported for `REGEX`:
+
+    * i: case-insensitive
+    * l: uses locale-dependent character classes
+    * m: enables multiline matching for "^" and "$"
+    * s: "." also matches the newline character
+    * u: enables unicode escape sequences
+    * x: `REGEX` uses verbose descriptors & comments
+
+  Note that the "/" character can be any character as long as it
+  is used consistently and not used within the modifier,
+  e.g. ``s|a|b|`` is equivalent to ``s/a/b/``.
   """
 
   def __init__(self, modifier):
-    self.modifier_form = 's/PROGRAM+OPTIONS/'
-    self.supported_flags = []
+    self.modifier_form = 's/REGEX/COMMAND/FLAGS'
+    self.supported_flags = ['i', 'l', 'm', 's', 'u', 'x']
     super(E_modifier, self).__init__(modifier)
-    self.command = self.modifier_lhs
+
+    re_flags = 0
+    for flag in self.modifier_flags:
+      re_flags |= getattr(re, flag.upper(), 0)
+
+    try:
+      self.regex = re.compile(self.modifier_lhs, re_flags)
+    except re.error, e:
+      raise InvalidModifier('%s in `%s`' % (e.message, modifier))
+
+    self.command = self.modifier_rhs
 
   def __call__(self, value):
+    match = self.regex.match(value)
+    if not match:
+      return value
+
+    command = match.expand(self.command)
+
     proc = subprocess.Popen(
-      self.command, shell=True,
+      command, shell=True,
       stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     out, err = proc.communicate(value.encode('utf-8'))
     out = out.decode('utf-8')
     err = err.decode('utf-8')
-
     if proc.returncode != 0:
-      print type('command `%s` failed: %s' % (self.command, err))
-      sys.stderr.write('command `%s` failed: %s' % (self.command, err))
+      sys.stderr.write('command `%s` failed: %s' % (command, err))
       sys.exit(1)
 
     out = out.replace('\n', '')

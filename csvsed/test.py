@@ -217,11 +217,20 @@ f....ld 3.1,field 3.2,field 3.3,field 3.4,field 3.5
 
   #----------------------------------------------------------------------------
   def test_modifier_e_directcall(self):
-    self.assertEqual(sed.modifier_as_function(u'e/tr ab xy/')(u'b,a,c'), u'y,x,c')
-    self.assertEqual(sed.modifier_as_function(u'e/xargs -I {} echo "{}^2" | bc/')(u'4'), u'16')
+    self.assertEqual(sed.modifier_as_function(u'e/./tr ab xy/')(u'b,a,c'), u'y,x,c')
+    self.assertEqual(sed.modifier_as_function(u'e/./xargs -I {} echo "{}^2" | bc/')(u'4'), u'16')
+
+  def test_modifier_e_directcall_filter(self):
+    self.assertEqual(sed.modifier_as_function(u'e/^[0-9]+$/xargs -I {} echo "{}^2" | bc/')(u'4'), u'16')
+    self.assertEqual(sed.modifier_as_function(u'e/^[0-9]+$/xargs -I {} echo "{}^2" | bc/')(u'4a'), u'4a')
 
   def test_modifier_e_directcall_unicode(self):
-    self.assertEqual(sed.modifier_as_function(u'e/sed "y~฿₯﷼￡￥~￥￡﷼₯฿~"/')(u'￥￡﷼₯฿'), u'฿₯﷼￡￥')
+    self.assertEqual(sed.modifier_as_function(u'e/./sed "y~฿₯﷼￡￥~￥￡﷼₯฿~"/')(u'￥￡﷼₯฿'), u'฿₯﷼￡￥')
+
+  def test_modifier_e_directcall_backref(self):
+    self.assertEqual(sed.modifier_as_function(u'e/^([0-9]+)(€?)$/echo "\\2"; echo "\\1^2" | bc/')(u'4'), u'16')
+    self.assertEqual(sed.modifier_as_function(u'e/^([0-9]+)(€?)$/echo "\\2"; echo "\\1^2" | bc/')(u'4€'), u'€16')
+    self.assertEqual(sed.modifier_as_function(u'e/^([0-9]+)(€?)$/echo "\\2"; echo "\\1^2" | bc/')(u'€4'), u'€4')
 
   #----------------------------------------------------------------------------
   def test_modifier_e_multipipe(self):
@@ -232,7 +241,7 @@ field 2.1,field 2.2,field 2.3,5.76,field 2.5
 field 3.1,field 3.2,field 3.3,11.56,field 3.5
 '''
     self.assertMultiLineEqual(
-      run(self.baseCsv, {3: 'e/cut -f2 -d" " | xargs -I {} echo "scale=3;{}^2" | bc/'}), chk)
+      run(self.baseCsv, {3: u'e/./cut -f2 -d" " | xargs -I {} echo "scale=3;{}^2" | bc/'}), chk)
 
   def test_modifier_e_unicode(self):
     chk = '''\
@@ -242,7 +251,7 @@ b,B,beta,β,Β,βήταβήταβήτα
 g,G,gamma,γ,Γ,γάμμαγάμμαγάμμα
 '''
     self.assertMultiLineEqual(
-      run(self.baseCsvUnicode, {5: 'e/xargs -I {} echo "{}{}{}"/'}), chk)
+      run(self.baseCsvUnicode, {5: u'e/./xargs -I {} echo "{}{}{}"/'}), chk)
 
   def test_modifier_e_comma_in_output(self):
     chk = '''\
@@ -252,7 +261,7 @@ b,B,beta,β,Β,"βήτα,βήτα,βήτα"
 g,G,gamma,γ,Γ,"γάμμα,γάμμα,γάμμα"
 '''
     self.assertMultiLineEqual(
-      run(self.baseCsvUnicode, {5: 'e/xargs -I {} echo "{},{},{}"/'}), chk)
+      run(self.baseCsvUnicode, {5: u'e/./xargs -I {} echo "{},{},{}"/'}), chk)
 
   def test_modifier_e_quotes_in_output(self):
     chk = '''\
@@ -262,7 +271,17 @@ b,B,beta,β,Β,"βήτα,""βήτα"",βήτα"
 g,G,gamma,γ,Γ,"γάμμα,""γάμμα"",γάμμα"
 '''
     self.assertMultiLineEqual(
-      run(self.baseCsvUnicode, {5: 'e/xargs -I {} echo "{},\\"{}\\",{}"/'}), chk)
+      run(self.baseCsvUnicode, {5: u'e/./xargs -I {} echo "{},\\"{}\\",{}"/'}), chk)
+
+  def test_modifier_e_backreference(self):
+    chk = '''\
+latin_lower,latin_upper,latin_full,greek_lower,greek_upper,greek_full
+a,A,"{first : a, last : a}",α,Α,"{first : ά, last : α}"
+b,B,"{first : b, last : a}",β,Β,"{first : β, last : α}"
+g,G,"{first : g, last : a}",γ,Γ,"{first : γ, last : α}"
+'''
+    self.assertMultiLineEqual(
+      run(self.baseCsvUnicode, {i: u'e/^(.).*(.)$/echo "{first : \\1, last : \\2}"/' for i in range(6)}), chk)
 
 
 #------------------------------------------------------------------------------
