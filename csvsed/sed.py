@@ -192,6 +192,11 @@ class Modifier(object):
       raise InvalidModifier('modifier is too short: `%s`' % modifier)
 
     modifier_type = modifier[0]
+
+    ref_modifier_type = self.modifier_form[0] if len(self.modifier_form) > 0 else None
+    if modifier_type != ref_modifier_type:
+      raise InvalidModifier('expected type `%s`, got `%s` in `%s`' % (ref_modifier_type, modifier_type, modifier))
+
     modifier_sep = modifier[1]
     modifier_parts = modifier.split(modifier_sep)
     if len(modifier_parts) != 4:
@@ -358,7 +363,7 @@ class E_modifier(Modifier):
   """
 
   def __init__(self, modifier):
-    self.modifier_form = 's/REGEX/COMMAND/FLAGS'
+    self.modifier_form = 'e/REGEX/COMMAND/FLAGS'
     self.supported_flags = ['i', 'l', 'm', 's', 'u', 'x']
     super(E_modifier, self).__init__(modifier)
 
