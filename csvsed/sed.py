@@ -48,7 +48,7 @@ class CsvFilter(object):
     modifiers : { list, dict }
 
       Specifies a set of modifiers to apply to the `reader`, which can
-      be either a sequence or dictionary of a modifiers to apply. If
+      be either a sequence or dictionary of modifiers to apply. If
       it is a sequence, then the modifiers are applied to the
       equivalently positioned cells in the input records. If it is a
       dictionary, the keys can be integers (column position) or
@@ -56,7 +56,7 @@ class CsvFilter(object):
       the following:
 
       * function : takes a single string argument and returns a string
-      * string : a sed-like modifier.
+      * string : a sed-like modifier
 
       Currently supported modification modifiers:
 
@@ -96,7 +96,7 @@ class CsvFilter(object):
     '''
     self.reader    = reader
     self.header    = header
-    self.column_names    = None if not header else reader.next()
+    self.column_names    = reader.next() if header else None
     self.modifiers = standardize_modifiers(self.column_names, modifiers)
 
   #----------------------------------------------------------------------------
@@ -124,7 +124,7 @@ def standardize_modifiers(column_names, modifiers):
   """
   try:
     # Dictionary of modifiers
-    modifiers = dict((k, modifier_as_function(v)) for k, v in modifiers.items() if v)
+    modifiers = dict((k, modifier_as_function(v)) for k, v in modifiers.items())
     if not column_names:
       return modifiers
     p2 = {}
@@ -139,13 +139,19 @@ def standardize_modifiers(column_names, modifiers):
     return p2
   except AttributeError:
     # Sequence of modifiers
-    return dict((i, modifier_as_function(x)) for i, x in enumerate(modifiers.values()))
+    return dict((idx, modifier_as_function(x)) for idx, x in enumerate(modifiers.values()))
 
 #------------------------------------------------------------------------------
 def modifier_as_function(modifier):
+  """
+  Given a modifier (string or callable), return a callable modifier. If the modifier is a string, return the
+  appropriate callable modifier by examinating the modifier type (first character).
+  """
+
   # modifier is a callable modifier
   if hasattr(modifier, '__call__'):
-    modifier_obj = modifier
+    callable_modifier = modifier
+
   # modifier is a string modifier
   else:
     supported_modifier_types = ['s', 'y', 'e']
@@ -155,12 +161,17 @@ def modifier_as_function(modifier):
     if modifier_type not in supported_modifier_types:
       raise InvalidModifier('unsupported type "%s" in modifier "%s"; supported modifier types are %s' % (modifier_type, modifier, ', '.join(supported_modifier_types)))
     # perform dispatch
-    modifier_obj = eval('%s_modifier' % modifier_type.upper())(modifier)
+    callable_modifier = eval('%s_modifier' % modifier_type.upper())(modifier)
 
-  return modifier_obj
+  return callable_modifier
 
 #------------------------------------------------------------------------------
 class Modifier(object):
+  """
+  Abstract modifier class, from which all modifier classes shall inherit. Perform common checks on the supplied modifier,
+  to ease the subsequent operations in subclasses.
+  """
+
   def __init__(self, modifier):
     if len(modifier) < 4:
       raise InvalidModifier('modifier is too short: "%s"' % modifier)
@@ -195,9 +206,25 @@ class Modifier(object):
 
 #------------------------------------------------------------------------------
 class S_modifier(Modifier):
-  '''
-  The "substitution" modifier ("s/REGEX/REPL/FLAGS")
-  '''
+  """
+  The "substitution" modifier ("s/REGEX/REPL/FLAGS").
+
+  Replaces regular expression `REGEX` with replacement string
+  `REPL`, which can use back references. Supports the following
+  flags:
+
+  * i: case-insensitive
+  * g: global replacement (otherwise only the first is replaced)
+  * l: uses locale-dependent character classes
+  * m: enables multiline matching for "^" and "$"
+  * s: "." also matches the newline character
+  * u: enables unicode escape sequences
+  * x: `REGEX` uses verbose descriptors & comments
+
+  Note that the "/" character can be any character as long as it
+    is used consistently and not used within the modifier,
+    e.g. ``s|a|b|`` is equivalent to ``s/a/b/``.
+  """
 
   def __init__(self, modifier):
     self.modifier_form = 's%sEXPR%sREPL%sFLAGS'
@@ -221,29 +248,55 @@ class S_modifier(Modifier):
     return self.regex.sub(self.repl, value, count=self.count)
 
 #------------------------------------------------------------------------------
-def cranges(modifier):
-  # todo: there must be a better way...
+def cranges(pattern):
+  """
+  Given a pattern, expands it to a range of characters (crange).
+
+  The dash character ("-") indicates a range
+  of characters (e.g. "a-z" for all alphabetic characters).  If
+  the dash is needed literally, then it must be the first or
+  last character, or escaped with "\". The "\" character escapes
+  itself. Only the "i" flag, indicating case-insensitive
+  matching of `SRC`, is supported.
+
+  Examples:
+    [pattern]  -> [crange]
+    'a-f'      -> 'abcdef'
+    'a\-f'     -> 'a-f'
+    'abc-'     -> 'abc-'
+    '-abc'     -> '-abc')
+    'a-c-e-g'  -> 'abcdefg'
+  """
   ret = ''
   idx = 0
-  while idx < len(modifier):
-    c = modifier[idx]
+  while idx < len(pattern):
+    c = pattern[idx]
     idx += 1
-    if c == '-' and len(ret) > 0 and len(modifier) > idx:
-      for i in range(ord(ret[-1]) + 1, ord(modifier[idx]) + 1):
+    if c == '-' and len(ret) > 0 and len(pattern) > idx:
+      for i in range(ord(ret[-1]) + 1, ord(pattern[idx]) + 1):
         ret += chr(i)
       idx += 1
       continue
-    if c == '\\' and len(modifier) > idx:
-      c = modifier[idx]
+    if c == '\\' and len(pattern) > idx:
+      c = pattern[idx]
       idx += 1
     ret += c
   return ret
 
 #------------------------------------------------------------------------------
 class Y_modifier(Modifier):
-  '''
-  The "transliterate" modifier ("y/SRC/DST/FLAGS")
-  '''
+  """
+  The "transliterate" modifier ("y/SRC/DST/FLAGS").
+
+  (This is a slightly modified version of sed's "y" command.)
+
+  Each character in `SRC` is replaced with the corresponding character in `DST`.
+  Character ranges are supported in SRC and DST for the "transliterate" modifier.
+
+  Note that the "/" character can be any character as long as it
+    is used consistently and not used within the modifier,
+    e.g. ``s|a|b|`` is equivalent to ``s/a/b/``.
+  """
 
   def __init__(self, modifier):
     self.modifier_form = 's%sSRC%sDST%sFLAGS'
@@ -267,7 +320,10 @@ class Y_modifier(Modifier):
 
 #------------------------------------------------------------------------------
 class ReadlineIterator(object):
-  'An iterator that calls readline() to get its next value.'
+  """
+  An iterator that calls readline() to get its next value
+  """
+
   # NOTE: this is a hack to make csv.reader not read-ahead.
   def __init__(self, f): self.f = f
   def __iter__(self): return self
@@ -278,7 +334,10 @@ class ReadlineIterator(object):
 
 #------------------------------------------------------------------------------
 class E_modifier(object):
-  'The "execute" external program modifier ("e/PROGRAM+OPTIONS/FLAGS").'
+  """
+  The "execute" external program modifier ("e/PROGRAM+OPTIONS/FLAGS")
+  """
+
   def __init__(self, modifier):
     super(E_modifier, self).__init__()
     if not modifier or len(modifier) < 3 or modifier[0] != 'e':
