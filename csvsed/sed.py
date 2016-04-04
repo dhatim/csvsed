@@ -288,7 +288,7 @@ class YModifier(Modifier):
       e.g. ``s|a|b|`` is equivalent to ``s/a/b/``.
     """
     def __init__(self, modifier):
-        self.modifier_form = 's/SRC/DST/FLAGS'
+        self.modifier_form = 'y/SRC/DST/FLAGS'
         self.supported_flags = ['i']
         super(YModifier, self).__init__(modifier)
 
