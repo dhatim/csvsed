@@ -20,8 +20,9 @@ class CsvSed(CSVKitUtility):
         self.argparser.add_argument('-c', '--columns', dest='columns',
           help='A comma separated list of column indices or names to be modified.')
         self.argparser.add_argument('-m', '--modifier', dest='modifier',
-          help='If specified, he "sed" modifier to evaluate: currently supports substitution '
-          ' (s/REGEX/EXPR/FLAGS) and transliteration (y/SRC/DEST/FLAGS)')
+          help='If specified, the "sed" modifier to evaluate: currently supports substitution '
+               '(s/REGEX/REPL/FLAGS), transliteration (y/SRC/DEST/FLAGS) and execution '
+               '(e/REGEX/COMMAND/FLAGS).')
 
     def main(self):
         if self.args.names_only:
@@ -32,7 +33,7 @@ class CsvSed(CSVKitUtility):
             self.argparser.error('You must specify at least one column to search using the -c option.')
 
         if self.args.modifier is None:
-            self.argparser.error('-r must be specified, unless using the -n option.')
+            self.argparser.error('-m must be specified, unless using the -n option.')
 
         # work exclusively with unicode modifiers
         if isinstance(self.args.modifier, str):
