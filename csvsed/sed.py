@@ -1,41 +1,21 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-#------------------------------------------------------------------------------
-# file: $Id$
-# auth: metagriffin <mg.github@metagriffin.net>
-# date: 2009/08/04
-# copy: (C) Copyright 2009-EOT metagriffin -- see LICENSE.txt
-#------------------------------------------------------------------------------
-# This software is free software: you can redistribute it and/or
-# modify it under the terms of the GNU General Public License as
-# published by the Free Software Foundation, either version 3 of the
-# License, or (at your option) any later version.
-#
-# This software is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program. If not, see http://www.gnu.org/licenses/.
-#------------------------------------------------------------------------------
 
-'''
+"""
 A stream-oriented CSV modification tool. Like a stripped-down "sed"
 command, but for tabular data.
-'''
+"""
 
 import re, subprocess, sys
 from csvkit.exceptions import ColumnIdentifierError
 
-#------------------------------------------------------------------------------
 class InvalidModifier(Exception):
   def __init__(self, message):
     super(InvalidModifier, self).__init__('Invalid modifier: %s' % message)
 
-#------------------------------------------------------------------------------
 class CsvFilter(object):
   def __init__(self, reader, modifiers, header=True):
-    '''
+    """
     On-the-fly modifies CSV records coming from a csvkit reader object.
 
     :Parameters:
@@ -108,17 +88,15 @@ class CsvFilter(object):
     header : bool, optional, default: true
 
       If truthy (the default), then the first row will not be modified.
-    '''
+    """
     self.reader    = reader
     self.header    = header
     self.column_names    = reader.next() if header else None
     self.modifiers = standardize_modifiers(self.column_names, modifiers)
 
-  #----------------------------------------------------------------------------
   def __iter__(self):
     return self
 
-  #----------------------------------------------------------------------------
   def next(self):
     if self.header:
       self.header = False
@@ -128,7 +106,6 @@ class CsvFilter(object):
       row[col] = mod(row[col])
     return row
 
-#------------------------------------------------------------------------------
 def standardize_modifiers(column_names, modifiers):
   """
   Given modifiers in any of the permitted input forms, return a dict whose keys
@@ -156,7 +133,6 @@ def standardize_modifiers(column_names, modifiers):
     # Sequence of modifiers
     return dict((idx, modifier_as_function(x)) for idx, x in enumerate(modifiers.values()))
 
-#------------------------------------------------------------------------------
 def modifier_as_function(modifier):
   """
   Given a modifier (string or callable), return a callable modifier. If the modifier is a string, return the
@@ -176,11 +152,10 @@ def modifier_as_function(modifier):
     if modifier_type not in supported_modifier_types:
       raise InvalidModifier('unsupported type `%s` in modifier `%s`; supported modifier types are %s' % (modifier_type, modifier, ', '.join(supported_modifier_types)))
     # perform dispatch
-    callable_modifier = eval('%s_modifier' % modifier_type.upper())(modifier)
+    callable_modifier = eval('%sModifier' % modifier_type.upper())(modifier)
 
   return callable_modifier
 
-#------------------------------------------------------------------------------
 class Modifier(object):
   """
   Abstract modifier class, from which all modifier classes shall inherit. Perform common checks on the supplied modifier,
@@ -224,8 +199,7 @@ class Modifier(object):
         raise InvalidModifier(message)
     self.modifier_flags = flags
 
-#------------------------------------------------------------------------------
-class S_modifier(Modifier):
+class SModifier(Modifier):
   """
   The "substitution" modifier ("s/REGEX/REPL/FLAGS").
 
@@ -250,7 +224,7 @@ class S_modifier(Modifier):
     self.modifier_form = 's/REGEX/REPL/FLAGS'
     self.supported_flags = ['i', 'g', 'l', 'm', 's', 'u', 'x']
 
-    super(S_modifier, self).__init__(modifier)
+    super(SModifier, self).__init__(modifier)
 
     self.repl = self.modifier_rhs
 
@@ -268,7 +242,6 @@ class S_modifier(Modifier):
   def __call__(self, value):
     return self.regex.sub(self.repl, value, count=self.count)
 
-#------------------------------------------------------------------------------
 def cranges(pattern):
   """
   Given a pattern, expands it to a range of characters (crange).
@@ -304,8 +277,7 @@ def cranges(pattern):
     ret += c
   return ret
 
-#------------------------------------------------------------------------------
-class Y_modifier(Modifier):
+class YModifier(Modifier):
   """
   The "transliterate" modifier ("y/SRC/DST/FLAGS").
 
@@ -322,7 +294,7 @@ class Y_modifier(Modifier):
   def __init__(self, modifier):
     self.modifier_form = 's/SRC/DST/FLAGS'
     self.supported_flags = ['i']
-    super(Y_modifier, self).__init__(modifier)
+    super(YModifier, self).__init__(modifier)
 
     src = cranges(self.modifier_lhs)
     dst = cranges(self.modifier_rhs)
@@ -339,8 +311,7 @@ class Y_modifier(Modifier):
   def __call__(self, value):
     return value.translate(self.table)
 
-#------------------------------------------------------------------------------
-class E_modifier(Modifier):
+class EModifier(Modifier):
   """
   The "execute" external program modifier ("s/REGEX/COMMAND/FLAGS").
 
@@ -365,7 +336,7 @@ class E_modifier(Modifier):
   def __init__(self, modifier):
     self.modifier_form = 'e/REGEX/COMMAND/FLAGS'
     self.supported_flags = ['i', 'l', 'm', 's', 'u', 'x']
-    super(E_modifier, self).__init__(modifier)
+    super(EModifier, self).__init__(modifier)
 
     re_flags = 0
     for flag in self.modifier_flags:
@@ -398,8 +369,3 @@ class E_modifier(Modifier):
 
     out = out.replace('\n', '')
     return out
-
-#------------------------------------------------------------------------------
-# end of $Id$
-# $ChangeLog$
-#------------------------------------------------------------------------------
