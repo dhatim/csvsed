@@ -13,7 +13,7 @@ class InvalidModifier(Exception):
     def __init__(self, message):
         super(InvalidModifier, self).__init__('Invalid modifier: %s' % message)
 
-class CsvFilter(object):
+class CSVModifier(object):
     def __init__(self, reader, modifiers, header=True):
         """
         On-the-fly modifies CSV records coming from a csvkit reader object.

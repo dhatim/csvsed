@@ -9,7 +9,7 @@ import agate
 from csvkit.cli import CSVKitUtility
 from csvsed import sed
 
-class CsvSed(CSVKitUtility):
+class CSVSed(CSVKitUtility):
 
     description = 'A stream-oriented CSV modification tool. Like a ' \
                   ' stripped-down "sed" command, but for tabular data.'
@@ -47,7 +47,7 @@ class CsvSed(CSVKitUtility):
         rows, column_names, column_ids = self.get_rows_and_column_names_and_column_ids(**reader_kwargs)
 
         modifiers = {idx: self.args.modifier for idx in column_ids}
-        reader = sed.CsvFilter(rows, modifiers, header=False)
+        reader = sed.CSVModifier(rows, modifiers, header=False)
 
         output = agate.csv.writer(self.output_file, **writer_kwargs)
         output.writerow(column_names)
@@ -56,7 +56,7 @@ class CsvSed(CSVKitUtility):
             output.writerow(row)
 
 def launch_instance():
-    utility = CsvSed()
+    utility = CSVSed()
     utility.main()
 
 if __name__ == '__main__':
