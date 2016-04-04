@@ -251,12 +251,12 @@ def cranges(pattern):
     matching of `SRC`, is supported.
 
     Examples:
-      [pattern]    -> [crange]
-      'a-f'            -> 'abcdef'
-      'a\-f'         -> 'a-f'
-      'abc-'         -> 'abc-'
-      '-abc'         -> '-abc')
-      'a-c-e-g'    -> 'abcdefg'
+      [pattern]  ->  [crange]
+      'a-f'      ->  'abcdef'
+      'a\-f'     ->  'a-f'
+      'abc-'     ->  'abc-'
+      '-abc'     ->  '-abc')
+      'a-c-e-g'  ->  'abcdefg'
     """
     ret = ''
     idx = 0
