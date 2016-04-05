@@ -6,7 +6,9 @@ A stream-oriented CSV modification tool. Like a stripped-down "sed"
 command, but for tabular data.
 """
 
-import re, subprocess, sys
+import re
+import subprocess
+import sys
 from csvkit.exceptions import ColumnIdentifierError
 
 class InvalidModifier(Exception):

@@ -50,7 +50,7 @@ dependencies = [
 
 entrypoints = {
   'console_scripts': [
-    'csvsed             = csvsed.cli:main',
+    'csvsed             = csvsed.cli:launch_instance',
   ],
 }
 

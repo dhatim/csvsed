@@ -7,7 +7,7 @@ Command-line interface to `csvsed.sed`.
 
 import agate
 from csvkit.cli import CSVKitUtility
-from csvsed import sed
+from sed import CSVModifier
 
 class CSVSed(CSVKitUtility):
 
@@ -47,7 +47,7 @@ class CSVSed(CSVKitUtility):
         rows, column_names, column_ids = self.get_rows_and_column_names_and_column_ids(**reader_kwargs)
 
         modifiers = {idx: self.args.modifier for idx in column_ids}
-        reader = sed.CSVModifier(rows, modifiers, header=False)
+        reader = CSVModifier(rows, modifiers, header=False)
 
         output = agate.csv.writer(self.output_file, **writer_kwargs)
         output.writerow(column_names)
