@@ -39,12 +39,13 @@ test_dependencies = [
 
 dependencies = [
   'argparse             >= 1.2.1',
-  'csvkit               >= 0.5.0',
+  'csvkit               >= 1.0.0',
   'SQLAlchemy           >= 0.6.6',
   'dbf                  >= 0.94.003',
   'openpyxl             >= 1.5.7',
   'python-dateutil      >= 1.5',
   'xlrd                 >= 0.7.1',
+  'six                  >= 1.6.1'
 ]
 
 entrypoints = {
