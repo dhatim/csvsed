@@ -9,13 +9,14 @@ command, but for tabular data.
 import re
 import subprocess
 import sys
+import six
 from csvkit.exceptions import ColumnIdentifierError
 
 class InvalidModifier(Exception):
     def __init__(self, message):
         super(InvalidModifier, self).__init__('Invalid modifier: %s' % message)
 
-class CSVModifier(object):
+class CSVModifier(six.Iterator):
     """
     On-the-fly modifies CSV records coming from a csvkit reader object.
 
@@ -91,19 +92,19 @@ class CSVModifier(object):
       If truthy (the default), then the first row will not be modified.
     """
     def __init__(self, reader, modifiers, header=True):
-        self.reader        = reader
-        self.header        = header
-        self.column_names        = reader.next() if header else None
+        self.reader = reader
+        self.header = header
+        self.column_names = next(reader) if header else None
         self.modifiers = standardize_modifiers(self.column_names, modifiers)
 
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         if self.header:
             self.header = False
             return self.column_names
-        row = self.reader.next()
+        row = next(self.reader)
         for col, mod in self.modifiers.items():
             row[col] = mod(row[col])
         return row
@@ -233,7 +234,7 @@ class SModifier(Modifier):
 
         try:
             self.regex = re.compile(self.modifier_lhs, re_flags)
-        except re.error, e:
+        except re.error as e:
             raise InvalidModifier('%s in `%s`' % (e.message, modifier))
 
         self.count = 0 if 'g' in self.modifier_flags else 1
@@ -341,7 +342,7 @@ class EModifier(Modifier):
 
         try:
             self.regex = re.compile(self.modifier_lhs, re_flags)
-        except re.error, e:
+        except re.error as e:
             raise InvalidModifier('%s in `%s`' % (e.message, modifier))
 
         self.command = self.modifier_rhs
