@@ -8,6 +8,7 @@ except ImportError:
 
 import agate
 import six
+
 from sed import CSVModifier, cranges, modifier_as_function
 
 def run(source, modifiers, header=True):

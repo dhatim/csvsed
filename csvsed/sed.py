@@ -9,8 +9,10 @@ command, but for tabular data.
 import re
 import subprocess
 import sys
-import six
+
 from csvkit.exceptions import ColumnIdentifierError
+
+import six
 
 class InvalidModifier(Exception):
     def __init__(self, message):
