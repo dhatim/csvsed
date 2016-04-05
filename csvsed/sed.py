@@ -14,81 +14,81 @@ class InvalidModifier(Exception):
         super(InvalidModifier, self).__init__('Invalid modifier: %s' % message)
 
 class CSVModifier(object):
+    """
+    On-the-fly modifies CSV records coming from a csvkit reader object.
+
+    :Parameters:
+
+    reader : iter
+
+      The CSV record source - must support the `next()` call, which
+      should return a list of values.
+
+    modifiers : { list, dict }
+
+      Specifies a set of modifiers to apply to the `reader`, which can
+      be either a sequence or dictionary of modifiers to apply. If
+      it is a sequence, then the modifiers are applied to the
+      equivalently positioned cells in the input records. If it is a
+      dictionary, the keys can be integers (column position) or
+      strings (column name). In all cases, the modifiers can be one of
+      the following:
+
+      * function : takes a single string argument and returns a string
+      * string : a sed-like modifier
+
+      Currently supported modification modifiers:
+
+      * Substitution: "s/REGEX/REPL/FLAGS"
+
+        Replaces regular expression `REGEX` with replacement string
+        `REPL`, which can use back references. Supports the following
+        flags:
+
+        * i: case-insensitive
+        * g: global replacement (otherwise only the first is replaced)
+        * l: uses locale-dependent character classes
+        * m: enables multiline matching for "^" and "$"
+        * s: "." also matches the newline character
+        * u: enables unicode escape sequences
+        * x: `REGEX` uses verbose descriptors & comments
+
+      * Transliteration: "y/SRC/DST/FLAGS"
+
+        (This is a slightly modified version of sed's "y" command.)
+
+        Each character in `SRC` is replaced with the corresponding
+        character in `DST`. The dash character ("-") indicates a range
+        of characters (e.g. "a-z" for all alphabetic characters).    If
+        the dash is needed literally, then it must be the first or
+        last character, or escaped with "\". The "\" character escapes
+        itself. Only the "i" flag, indicating case-insensitive
+        matching of `SRC`, is supported.
+
+      * Execution: "e/REGEX/COMMAND/FLAGS"
+
+        For cells matching `REGEX`, execute (using bash) the external
+        command `COMMAND`, which can back-references to `REGEX`. All
+        new lines are stripped in the output of `COMMAND`.
+
+        The following flags are supported for `REGEX`:
+
+        * i: case-insensitive
+        * l: uses locale-dependent character classes
+        * m: enables multiline matching for "^" and "$"
+        * s: "." also matches the newline character
+        * u: enables unicode escape sequences
+        * x: `REGEX` uses verbose descriptors & comments
+
+      Note that the "/" character can be any character as long as it
+      is used consistently and not used within the modifier,
+      e.g. ``s|a|b|`` is equivalent to ``s/a/b/``.
+
+    header : bool, optional, default: true
+
+      If truthy (the default), then the first row will not be modified.
+    """
     def __init__(self, reader, modifiers, header=True):
-        """
-        On-the-fly modifies CSV records coming from a csvkit reader object.
-
-        :Parameters:
-
-        reader : iter
-
-          The CSV record source - must support the `next()` call, which
-          should return a list of values.
-
-        modifiers : { list, dict }
-
-          Specifies a set of modifiers to apply to the `reader`, which can
-          be either a sequence or dictionary of modifiers to apply. If
-          it is a sequence, then the modifiers are applied to the
-          equivalently positioned cells in the input records. If it is a
-          dictionary, the keys can be integers (column position) or
-          strings (column name). In all cases, the modifiers can be one of
-          the following:
-
-          * function : takes a single string argument and returns a string
-          * string : a sed-like modifier
-
-          Currently supported modification modifiers:
-
-          * Substitution: "s/REGEX/REPL/FLAGS"
-
-            Replaces regular expression `REGEX` with replacement string
-            `REPL`, which can use back references. Supports the following
-            flags:
-
-            * i: case-insensitive
-            * g: global replacement (otherwise only the first is replaced)
-            * l: uses locale-dependent character classes
-            * m: enables multiline matching for "^" and "$"
-            * s: "." also matches the newline character
-            * u: enables unicode escape sequences
-            * x: `REGEX` uses verbose descriptors & comments
-
-          * Transliteration: "y/SRC/DST/FLAGS"
-
-            (This is a slightly modified version of sed's "y" command.)
-
-            Each character in `SRC` is replaced with the corresponding
-            character in `DST`. The dash character ("-") indicates a range
-            of characters (e.g. "a-z" for all alphabetic characters).    If
-            the dash is needed literally, then it must be the first or
-            last character, or escaped with "\". The "\" character escapes
-            itself. Only the "i" flag, indicating case-insensitive
-            matching of `SRC`, is supported.
-
-          * Execution: "e/REGEX/COMMAND/FLAGS"
-
-            For cells matching `REGEX`, execute (using bash) the external
-            command `COMMAND`, which can back-references to `REGEX`. All
-            new lines are stripped in the output of `COMMAND`.
-
-            The following flags are supported for `REGEX`:
-
-            * i: case-insensitive
-            * l: uses locale-dependent character classes
-            * m: enables multiline matching for "^" and "$"
-            * s: "." also matches the newline character
-            * u: enables unicode escape sequences
-            * x: `REGEX` uses verbose descriptors & comments
-
-          Note that the "/" character can be any character as long as it
-          is used consistently and not used within the modifier,
-          e.g. ``s|a|b|`` is equivalent to ``s/a/b/``.
-
-        header : bool, optional, default: true
-
-          If truthy (the default), then the first row will not be modified.
-        """
         self.reader        = reader
         self.header        = header
         self.column_names        = reader.next() if header else None
