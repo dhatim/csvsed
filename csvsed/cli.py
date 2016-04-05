@@ -16,13 +16,13 @@ class CSVSed(CSVKitUtility):
 
     def add_arguments(self):
         self.argparser.add_argument('-n', '--names', dest='names_only', action='store_true',
-       	  help='Display column names and indices from the input CSV and exit.')
+                                    help='Display column names and indices from the input CSV and exit.')
         self.argparser.add_argument('-c', '--columns', dest='columns',
-          help='A comma separated list of column indices or names to be modified.')
+                                    help='A comma separated list of column indices or names to be modified.')
         self.argparser.add_argument('-m', '--modifier', dest='modifier',
-          help='If specified, the "sed" modifier to evaluate: currently supports substitution '
-               '(s/REGEX/REPL/FLAGS), transliteration (y/SRC/DEST/FLAGS) and execution '
-               '(e/REGEX/COMMAND/FLAGS).')
+                                    help='If specified, the "sed" modifier to evaluate: currently supports substitution '
+                                      '(s/REGEX/REPL/FLAGS), transliteration (y/SRC/DEST/FLAGS) and execution '
+                                      '(e/REGEX/COMMAND/FLAGS).')
 
     def main(self):
         if self.args.names_only:

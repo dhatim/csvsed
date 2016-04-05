@@ -7,14 +7,14 @@ except ImportError:
     import unittest
 
 import agate
-import StringIO
-from . import sed
+import six
+from sed import CSVModifier, cranges, modifier_as_function
 
 def run(source, modifiers, header=True):
-    src = StringIO.StringIO(source)
-    dst = StringIO.StringIO()
+    src = six.StringIO(source)
+    dst = six.StringIO()
     reader = agate.csv.reader(src)
-    reader = sed.CSVModifier(reader, modifiers, header=header)
+    reader = CSVModifier(reader, modifiers, header=header)
     writer = agate.csv.writer(dst)
     for row in reader:
         writer.writerow(row)
@@ -37,26 +37,26 @@ g,G,gamma,γ,Γ,γάμμα
 """
 
     def test_charRanges(self):
-        self.assertEqual(sed.cranges(u'a-f'), u'abcdef')
-        self.assertEqual(sed.cranges(u'a\-f'), u'a-f')
-        self.assertEqual(sed.cranges(u'abc-'), u'abc-')
-        self.assertEqual(sed.cranges(u'-abc'), u'-abc')
-        self.assertEqual(sed.cranges(u'a\\\\-_z'), u'a\]^_z')
-        self.assertEqual(sed.cranges(u'a-c-e-g'), u'abcdefg')
+        self.assertEqual(cranges(u'a-f'), u'abcdef')
+        self.assertEqual(cranges(u'a\-f'), u'a-f')
+        self.assertEqual(cranges(u'abc-'), u'abc-')
+        self.assertEqual(cranges(u'-abc'), u'-abc')
+        self.assertEqual(cranges(u'a\\\\-_z'), u'a\]^_z')
+        self.assertEqual(cranges(u'a-c-e-g'), u'abcdefg')
 
     def test_modifier_y_directcall(self):
-        self.assertEqual(sed.modifier_as_function(u'y/abc/def/')(u'b,a,c'), u'e,d,f')
-        self.assertEqual(sed.modifier_as_function(u'y/abc/def/')(u'b,A,C'), u'e,A,C')
-        self.assertEqual(sed.modifier_as_function(u'y/abc/def/i')(u'b,A,C'), u'e,d,f')
-        self.assertEqual(sed.modifier_as_function(u'y/a-z/A-Z/')(u'Back-Up'), u'BACK-UP')
-        self.assertEqual(sed.modifier_as_function(u'y/a\-z/A~Z/')(u'Back-Up'), u'BAck~Up')
+        self.assertEqual(modifier_as_function(u'y/abc/def/')(u'b,a,c'), u'e,d,f')
+        self.assertEqual(modifier_as_function(u'y/abc/def/')(u'b,A,C'), u'e,A,C')
+        self.assertEqual(modifier_as_function(u'y/abc/def/i')(u'b,A,C'), u'e,d,f')
+        self.assertEqual(modifier_as_function(u'y/a-z/A-Z/')(u'Back-Up'), u'BACK-UP')
+        self.assertEqual(modifier_as_function(u'y/a\-z/A~Z/')(u'Back-Up'), u'BAck~Up')
 
     def test_modifier_y_directcall_unicode(self):
-        self.assertEqual(sed.modifier_as_function(u'y/abc/def/')(u'b,a,c'), u'e,d,f')
-        self.assertEqual(sed.modifier_as_function(u'y/abc/def/')(u'b,a,c'), u'e,d,f')
-        self.assertEqual(sed.modifier_as_function(u'y/αβγ/abg/')(u'β,α,γ'), u'b,a,g')
-        self.assertEqual(sed.modifier_as_function(u'y/abg/αβγ/')(u'b,a,g'), u'β,α,γ')
-        self.assertEqual(sed.modifier_as_function(u'y/αβγ/γαβ/')(u'β,α,γ'), u'α,γ,β')
+        self.assertEqual(modifier_as_function(u'y/abc/def/')(u'b,a,c'), u'e,d,f')
+        self.assertEqual(modifier_as_function(u'y/abc/def/')(u'b,a,c'), u'e,d,f')
+        self.assertEqual(modifier_as_function(u'y/αβγ/abg/')(u'β,α,γ'), u'b,a,g')
+        self.assertEqual(modifier_as_function(u'y/abg/αβγ/')(u'b,a,g'), u'β,α,γ')
+        self.assertEqual(modifier_as_function(u'y/αβγ/γαβ/')(u'β,α,γ'), u'α,γ,β')
 
     def test_modifier_y_toupper(self):
         chk = """\
@@ -68,16 +68,16 @@ field 3.1,field 3.2,FIELD 3.3,field 3.4,field 3.5
         self.assertEqual(run(self.baseCSV, {2: u'y/a-z/A-Z/'}), chk)
 
     def test_modifier_s_directcall(self):
-        self.assertEqual(sed.modifier_as_function(u's/a/b/')(u'abcabc'), u'bbcabc')
-        self.assertEqual(sed.modifier_as_function(u's/a/b/g')(u'abcabc'), u'bbcbbc')
-        self.assertEqual(sed.modifier_as_function(u's/a/b/g')(u'abcABC'), u'bbcABC')
-        self.assertEqual(sed.modifier_as_function(u's/a/b/gi')(u'abcABC'), u'bbcbBC')
+        self.assertEqual(modifier_as_function(u's/a/b/')(u'abcabc'), u'bbcabc')
+        self.assertEqual(modifier_as_function(u's/a/b/g')(u'abcabc'), u'bbcbbc')
+        self.assertEqual(modifier_as_function(u's/a/b/g')(u'abcABC'), u'bbcABC')
+        self.assertEqual(modifier_as_function(u's/a/b/gi')(u'abcABC'), u'bbcbBC')
 
     def test_modifier_s_directcall_unicode(self):
-        self.assertEqual(sed.modifier_as_function(u's/π/p/')(u'κάππα'), u'κάpπα')
-        self.assertEqual(sed.modifier_as_function(u's/π/p/g')(u'κάππα'), u'κάppα')
-        self.assertEqual(sed.modifier_as_function(u's/π/Π/')(u'κάππα'), u'κάΠπα')
-        self.assertEqual(sed.modifier_as_function(u's/π/Π/g')(u'κάππα'), u'κάΠΠα')
+        self.assertEqual(modifier_as_function(u's/π/p/')(u'κάππα'), u'κάpπα')
+        self.assertEqual(modifier_as_function(u's/π/p/g')(u'κάππα'), u'κάppα')
+        self.assertEqual(modifier_as_function(u's/π/Π/')(u'κάππα'), u'κάΠπα')
+        self.assertEqual(modifier_as_function(u's/π/Π/g')(u'κάππα'), u'κάΠΠα')
 
     def test_modifier_s_noflags(self):
         chk = """\
@@ -189,20 +189,20 @@ f....ld 3.1,field 3.2,field 3.3,field 3.4,field 3.5
         self.assertMultiLineEqual(run(src, {1: u's/(,|[^άα])//g'}, header=False), chk)
 
     def test_modifier_e_directcall(self):
-        self.assertEqual(sed.modifier_as_function(u'e/./tr ab xy/')(u'b,a,c'), u'y,x,c')
-        self.assertEqual(sed.modifier_as_function(u'e/./xargs -I {} echo "{}^2" | bc/')(u'4'), u'16')
+        self.assertEqual(modifier_as_function(u'e/./tr ab xy/')(u'b,a,c'), u'y,x,c')
+        self.assertEqual(modifier_as_function(u'e/./xargs -I {} echo "{}^2" | bc/')(u'4'), u'16')
 
     def test_modifier_e_directcall_filter(self):
-        self.assertEqual(sed.modifier_as_function(u'e/^[0-9]+$/xargs -I {} echo "{}^2" | bc/')(u'4'), u'16')
-        self.assertEqual(sed.modifier_as_function(u'e/^[0-9]+$/xargs -I {} echo "{}^2" | bc/')(u'4a'), u'4a')
+        self.assertEqual(modifier_as_function(u'e/^[0-9]+$/xargs -I {} echo "{}^2" | bc/')(u'4'), u'16')
+        self.assertEqual(modifier_as_function(u'e/^[0-9]+$/xargs -I {} echo "{}^2" | bc/')(u'4a'), u'4a')
 
     def test_modifier_e_directcall_unicode(self):
-        self.assertEqual(sed.modifier_as_function(u'e/./sed "y~฿₯﷼￡￥~￥￡﷼₯฿~"/')(u'￥￡﷼₯฿'), u'฿₯﷼￡￥')
+        self.assertEqual(modifier_as_function(u'e/./sed "y~฿₯﷼￡￥~￥￡﷼₯฿~"/')(u'￥￡﷼₯฿'), u'฿₯﷼￡￥')
 
     def test_modifier_e_directcall_backref(self):
-        self.assertEqual(sed.modifier_as_function(u'e/^([0-9]+)(€?)$/echo "\\2"; echo "\\1^2" | bc/')(u'4'), u'16')
-        self.assertEqual(sed.modifier_as_function(u'e/^([0-9]+)(€?)$/echo "\\2"; echo "\\1^2" | bc/')(u'4€'), u'€16')
-        self.assertEqual(sed.modifier_as_function(u'e/^([0-9]+)(€?)$/echo "\\2"; echo "\\1^2" | bc/')(u'€4'), u'€4')
+        self.assertEqual(modifier_as_function(u'e/^([0-9]+)(€?)$/echo "\\2"; echo "\\1^2" | bc/')(u'4'), u'16')
+        self.assertEqual(modifier_as_function(u'e/^([0-9]+)(€?)$/echo "\\2"; echo "\\1^2" | bc/')(u'4€'), u'€16')
+        self.assertEqual(modifier_as_function(u'e/^([0-9]+)(€?)$/echo "\\2"; echo "\\1^2" | bc/')(u'€4'), u'€4')
 
     def test_modifier_e_multipipe(self):
         chk = """\
